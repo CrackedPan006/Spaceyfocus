@@ -1,0 +1,1187 @@
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta
+      name="description"
+      content="Spacey Focus — A focused Pomodoro timer."
+    />
+    <meta name="theme-color" content="#100f0d" />
+    <title>Spacey Focus — Pomodoro Timer</title>
+  </head>
+
+  <body>
+    <main class="timer-app">
+      <section class="timer" aria-label="Pomodoro timer">
+
+        <div id="phase-icon" class="timer-icon" aria-hidden="true">👓</div>
+
+        <div
+          id="display"
+          class="display"
+          role="timer"
+          aria-label="Time remaining"
+          aria-live="off"
+        >
+          50:00
+        </div>
+
+        <p id="phase">FOCUS SESSION</p>
+
+        <div class="duration-settings">
+          <div class="setting">
+            <label for="duration">Focus</label>
+            <input
+              id="duration"
+              type="number"
+              min="1"
+              max="180"
+              value="50"
+            />
+          </div>
+
+          <div class="setting">
+            <label for="break-duration">Break</label>
+            <input
+              id="break-duration"
+              type="number"
+              min="1"
+              max="180"
+              value="12"
+            />
+          </div>
+        </div>
+
+        <p id="status" role="status">Ready to focus</p>
+
+        <div class="controls">
+          <button id="start">Start</button>
+          <button id="pause" disabled>Pause</button>
+          <button id="reset">Reset</button>
+        </div>
+      </section>
+
+      <section class="statistics" aria-label="Daily statistics">
+        <div class="stat-card">
+          <p id="today-count" class="stat-number">0</p>
+          <p class="stat-label">Today</p>
+        </div>
+
+        <div class="stat-card history-card">
+          <button
+            id="history-toggle"
+            class="history-toggle"
+            aria-expanded="false"
+            aria-controls="history-panel"
+          >
+            History
+          </button>
+        </div>
+      </section>
+
+      <section id="history-panel" class="history-panel" aria-label="Today's session history" hidden>
+        <h2>Today's history</h2>
+        <p id="history-total" class="history-total">0 Pomodoro sessions completed today</p>
+        <ol id="history-list" class="history-list"></ol>
+      </section>
+
+      <section class="music-section">
+        <button
+          id="music-toggle"
+          class="music-toggle"
+          aria-expanded="false"
+          aria-controls="music-panel"
+        >
+          <span aria-hidden="true">♫</span> Music
+        </button>
+
+        <div id="music-panel" class="music-panel" hidden>
+          <h2>Focus soundtrack</h2>
+          <p>Paste a YouTube video or playlist link.</p>
+
+          <div class="music-input-row">
+            <input
+              id="music-url"
+              type="url"
+              placeholder="https://www.youtube.com/..."
+              aria-label="YouTube video or playlist URL"
+            />
+            <button id="load-music">Load</button>
+          </div>
+
+          <p id="music-status" role="status">
+            No music loaded.
+          </p>
+
+          <div id="music-player-container" hidden>
+            <div class="youtube-player-frame">
+              <div id="youtube-player"></div>
+            </div>
+          </div>
+
+          <p class="music-note">
+            Music plays during focus sessions and pauses during breaks.
+          </p>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
+
+<script>
+  const durationInput =
+    document.querySelector<HTMLInputElement>("#duration")!;
+
+  const breakDurationInput =
+    document.querySelector<HTMLInputElement>("#break-duration")!;
+
+  const display =
+    document.querySelector<HTMLDivElement>("#display")!;
+	const phaseIcon =
+    document.querySelector<HTMLDivElement>("#phase-icon")!;
+
+  const phaseDisplay =
+    document.querySelector<HTMLParagraphElement>("#phase")!;
+
+  const statusText =
+    document.querySelector<HTMLParagraphElement>("#status")!;
+
+  const todayCountDisplay =
+    document.querySelector<HTMLParagraphElement>("#today-count")!;
+
+  const historyToggle =
+    document.querySelector<HTMLButtonElement>("#history-toggle")!;
+
+  const historyPanel =
+    document.querySelector<HTMLElement>("#history-panel")!;
+
+  const historyTotal =
+    document.querySelector<HTMLParagraphElement>("#history-total")!;
+
+  const historyList =
+    document.querySelector<HTMLOListElement>("#history-list")!;
+
+  const startButton =
+    document.querySelector<HTMLButtonElement>("#start")!;
+
+  const pauseButton =
+    document.querySelector<HTMLButtonElement>("#pause")!;
+
+  const resetButton =
+    document.querySelector<HTMLButtonElement>("#reset")!;
+
+  const musicToggle =
+    document.querySelector<HTMLButtonElement>("#music-toggle")!;
+
+  const musicPanel =
+    document.querySelector<HTMLDivElement>("#music-panel")!;
+
+  const musicInput =
+    document.querySelector<HTMLInputElement>("#music-url")!;
+
+  const loadMusicButton =
+    document.querySelector<HTMLButtonElement>("#load-music")!;
+
+  const musicStatus =
+    document.querySelector<HTMLParagraphElement>("#music-status")!;
+
+  const musicPlayerContainer =
+    document.querySelector<HTMLDivElement>("#music-player-container")!;
+
+  // Notification sounds
+  const focusCompleteSound = new Audio("/sounds/END.mp3");
+  const breakCompleteSound = new Audio("/sounds/START.mp3");
+
+  focusCompleteSound.preload = "auto";
+  breakCompleteSound.preload = "auto";
+
+  // Timer state
+  let phase: "focus" | "break" = "focus";
+  let remainingMs = getDuration(durationInput);
+  let deadline: number | null = null;
+  let interval: ReturnType<typeof setInterval> | null = null;
+
+  let completedSessions = loadCompletedSessions();
+
+  // Daily statistics
+  let todaySessions = 0;
+  let todayMinutes = 0;
+
+  type SessionRecord = {
+    date: string;
+    completedAt: string;
+    minutes: number;
+  };
+
+  let sessionHistory: SessionRecord[] = loadSessionHistory();
+
+  function loadSessionHistory(): SessionRecord[] {
+    try {
+      const saved = localStorage.getItem("spaceyfocus-session-history");
+      if (!saved) return [];
+
+      const parsed = JSON.parse(saved);
+      if (!Array.isArray(parsed)) return [];
+
+      return parsed.filter((item): item is SessionRecord =>
+        item &&
+        typeof item.date === "string" &&
+        typeof item.completedAt === "string" &&
+        Number.isFinite(item.minutes) &&
+        item.minutes > 0
+      );
+    } catch {
+      return [];
+    }
+  }
+
+  function saveSessionHistory(): void {
+    try {
+      localStorage.setItem(
+        "spaceyfocus-session-history",
+        JSON.stringify(sessionHistory)
+      );
+    } catch {
+      // The timer can still function if session history cannot be saved.
+    }
+  }
+
+  function renderHistory(): void {
+    const todaysSessions = sessionHistory.filter(
+      (session) => session.date === getTodayKey()
+    );
+
+    historyTotal.textContent =
+      `${todaysSessions.length} Pomodoro ${todaysSessions.length === 1 ? "session" : "sessions"} completed today`;
+
+    historyList.replaceChildren();
+
+    if (todaysSessions.length === 0) {
+      const emptyItem = document.createElement("li");
+      emptyItem.className = "history-empty";
+      emptyItem.textContent = "No completed sessions yet today.";
+      historyList.appendChild(emptyItem);
+      return;
+    }
+
+    todaysSessions.forEach((session, index) => {
+      const item = document.createElement("li");
+      item.className = "history-item";
+
+      const sessionLabel = document.createElement("span");
+      sessionLabel.textContent = `Pomodoro ${index + 1}`;
+
+      const sessionDetails = document.createElement("span");
+      const completedTime = new Date(session.completedAt).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+	  sessionDetails.textContent = ` — ${completedTime} · ${session.minutes} min`;
+
+      item.append(sessionLabel, sessionDetails);
+      historyList.appendChild(item);
+    });
+  }
+
+  // Music state is declared with the YouTube player below.
+
+  // Get a selected duration in milliseconds
+  function getDuration(input: HTMLInputElement): number {
+    const minutes = Number(input.value);
+
+    if (!Number.isInteger(minutes) || minutes < 1 || minutes > 180) {
+      throw new Error("Please enter a whole number between 1 and 180.");
+    }
+
+    return minutes * 60 * 1000;
+  }
+
+  function getCurrentDuration(): number {
+    return phase === "focus"
+      ? getDuration(durationInput)
+      : getDuration(breakDurationInput);
+  }
+
+  // Load completed sessions from browser storage
+  function loadCompletedSessions(): number {
+    try {
+      const saved = localStorage.getItem("spaceyfocus-sessions");
+      const parsed = saved === null ? 0 : Number(saved);
+
+      return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  function saveCompletedSessions(): void {
+    try {
+      localStorage.setItem(
+        "spaceyfocus-sessions",
+        String(completedSessions)
+      );
+    } catch {
+      // The timer can still function if storage is unavailable.
+    }
+  }
+
+  // Get the current local calendar date
+  function getTodayKey(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+  }
+
+  // Daily counters intentionally start at zero whenever the page is loaded.
+  // Completed sessions are still recorded separately in sessionHistory.
+
+  function saveDailyStats(): void {
+    try {
+      localStorage.setItem(
+        "spaceyfocus-daily-stats",
+        JSON.stringify({
+          date: getTodayKey(),
+          sessions: todaySessions,
+          minutes: todayMinutes
+        })
+      );
+    } catch {
+      // Daily statistics are optional if storage is unavailable.
+    }
+  }
+
+  // Reset daily counters only when the calendar day changes.
+  // Do not reload saved counts: Today starts at zero on every page reload.
+  function refreshDailyStats(): void {
+    try {
+      const saved = localStorage.getItem("spaceyfocus-daily-stats");
+
+      if (!saved) return;
+
+      const data = JSON.parse(saved);
+
+      if (data.date !== getTodayKey()) {
+        todaySessions = 0;
+        todayMinutes = 0;
+        saveDailyStats();
+        render();
+      }
+    } catch {
+      // Ignore storage errors.
+    }
+  }
+
+  // Format milliseconds as MM:SS
+  function formatTime(milliseconds: number): string {
+    const totalSeconds = Math.ceil(milliseconds / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  function render(): void {
+  display.textContent = formatTime(remainingMs);
+
+  phaseDisplay.textContent =
+    phase === "focus" ? "FOCUS SESSION" : "BREAK TIME";
+
+  phaseIcon.textContent =
+    phase === "focus" ? "👓" : "🌳";
+
+  todayCountDisplay.textContent = String(todaySessions);
+  renderHistory();
+}
+
+  function stopInterval(): void {
+    if (interval !== null) {
+      clearInterval(interval);
+      interval = null;
+    }
+  }
+
+  function playNotification(sound: HTMLAudioElement): void {
+    sound.currentTime = 0;
+    void sound.play().catch(() => {
+      // Browser audio restrictions may prevent playback.
+    });
+  }
+
+  // YouTube music controls
+  // The actual YouTube player remains visible inside the Music panel.
+  let ytPlayer: any = null;
+  let musicLoaded = false;
+  let musicReady = false;
+  let shouldPlayMusic = false;
+  let apiReady = false;
+
+  function getYouTubeEmbedUrl(input: string): string | null {
+    try {
+      const url = new URL(input.trim());
+      const host = url.hostname.replace(/^www\./, "").toLowerCase();
+
+      if (host === "youtu.be") {
+        const videoId = url.pathname.split("/").filter(Boolean)[0];
+        const playlistId = url.searchParams.get("list");
+        if (videoId) return `https://www.youtube.com/embed/${videoId}`;
+        if (playlistId) {
+          return `https://www.youtube.com/embed/videoseries?list=${encodeURIComponent(playlistId)}`;
+        }
+        return null;
+      }
+
+      if (host === "youtube.com" || host === "m.youtube.com" || host === "music.youtube.com") {
+        const videoId = url.searchParams.get("v");
+        const playlistId = url.searchParams.get("list");
+
+        if (videoId) return `https://www.youtube.com/embed/${videoId}`;
+        if (playlistId) {
+          return `https://www.youtube.com/embed/videoseries?list=${encodeURIComponent(playlistId)}`;
+        }
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  declare global {
+    interface Window {
+      YT: any;
+      onYouTubeIframeAPIReady: () => void;
+    }
+  }
+
+  function createYouTubePlayer(): void {
+    if (!apiReady || !musicLoaded) return;
+
+    const embedUrl = getYouTubeEmbedUrl(musicInput.value);
+    if (!embedUrl) return;
+
+    const url = new URL(embedUrl);
+    const videoId = url.pathname.split("/").filter(Boolean).pop();
+    const playlistId = url.searchParams.get("list");
+
+    // Recreate the target element after destroying a previously loaded player.
+    musicPlayerContainer.innerHTML = '<div class="youtube-player-frame"><div id="youtube-player"></div></div>';
+
+    ytPlayer = new window.YT.Player("youtube-player", {
+      // YouTube's minimum supported embedded-player viewport is 200 × 200.
+      height: "200",
+      width: "200",
+      ...(videoId && videoId !== "videoseries" ? { videoId } : {}),
+      playerVars: {
+        autoplay: 0,
+        controls: 1,
+        playsinline: 1,
+        ...(playlistId ? { listType: "playlist", list: playlistId } : {})
+      },
+      events: {
+        onReady: () => {
+          musicReady = true;
+          musicStatus.textContent = "Music loaded. Use the YouTube controls to start playback.";
+
+          if (shouldPlayMusic && phase === "focus" && deadline !== null) {
+            playMusic();
+          }
+        },
+        onStateChange: (event: any) => {
+          const playing = event.data === window.YT.PlayerState.PLAYING;
+          musicStatus.textContent = playing ? "Music is playing." : "Music paused.";
+        },
+        onError: () => {
+          musicStatus.textContent = "This video or playlist cannot be embedded. Try another YouTube link.";
+        }
+      }
+    });
+  }
+
+  function loadYouTubeAPI(): void {
+    if (window.YT && window.YT.Player) {
+      apiReady = true;
+      createYouTubePlayer();
+      return;
+    }
+
+    window.onYouTubeIframeAPIReady = () => {
+      apiReady = true;
+      if (musicLoaded) createYouTubePlayer();
+    };
+
+    if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+      const script = document.createElement("script");
+      script.src = "https://www.youtube.com/iframe_api";
+      document.head.appendChild(script);
+    }
+  }
+
+  function playMusic(): void {
+    shouldPlayMusic = true;
+    if (musicReady && phase === "focus" && deadline !== null) {
+      ytPlayer.playVideo();
+    }
+  }
+
+  function pauseMusic(): void {
+    shouldPlayMusic = false;
+    if (musicReady && ytPlayer) ytPlayer.pauseVideo();
+  }
+
+  function loadMusic(): void {
+    const embedUrl = getYouTubeEmbedUrl(musicInput.value);
+
+    if (!embedUrl) {
+      musicStatus.textContent = "Please enter a valid YouTube video or playlist link.";
+      return;
+    }
+
+    pauseMusic();
+    musicLoaded = true;
+    musicReady = false;
+    musicPlayerContainer.hidden = false;
+    musicStatus.textContent = "Loading your music...";
+
+    if (ytPlayer && typeof ytPlayer.destroy === "function") {
+      ytPlayer.destroy();
+      ytPlayer = null;
+    }
+
+    loadYouTubeAPI();
+  }
+
+  musicToggle.addEventListener("click", () => {
+    const isOpen = !musicPanel.hidden;
+    musicPanel.hidden = isOpen;
+    musicToggle.setAttribute("aria-expanded", String(!isOpen));
+  });
+
+  loadMusicButton.addEventListener("click", loadMusic);
+
+  historyToggle.addEventListener("click", () => {
+    const isOpen = !historyPanel.hidden;
+    historyPanel.hidden = isOpen;
+    historyToggle.setAttribute("aria-expanded", String(!isOpen));
+    renderHistory();
+  });
+
+  musicInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") loadMusic();
+  });
+
+  // Start the break automatically after a focus session
+  function completeFocusSession(): void {
+    completedSessions++;
+    todaySessions++;
+
+    const completedMinutes = Math.round(getDuration(durationInput) / 60000);
+    sessionHistory.push({
+      date: getTodayKey(),
+      completedAt: new Date().toISOString(),
+      minutes: completedMinutes
+    });
+    saveSessionHistory();
+
+    try {
+      todayMinutes += completedMinutes;
+    } catch {
+      // Keep the existing statistics if the input is invalid.
+    }
+
+    saveCompletedSessions();
+    saveDailyStats();
+
+    playNotification(focusCompleteSound);
+
+    // Music stops as soon as the focus session ends
+    pauseMusic();
+
+    phase = "break";
+
+    try {
+      remainingMs = getCurrentDuration();
+    } catch (error) {
+      stopInterval();
+      deadline = null;
+      remainingMs = 0;
+
+      statusText.textContent = (error as Error).message;
+      startButton.disabled = false;
+      startButton.textContent = "Start break";
+      pauseButton.disabled = true;
+
+      render();
+      return;
+    }
+
+    // Start the break immediately
+    deadline = Date.now() + remainingMs;
+
+    statusText.textContent = "Focus complete! Enjoy your break.";
+    startButton.disabled = true;
+    startButton.textContent = "Break in progress";
+    pauseButton.disabled = false;
+
+    render();
+  }
+
+  // Return to focus mode after the break
+  function completeBreak(): void {
+    stopInterval();
+    deadline = null;
+
+    playNotification(breakCompleteSound);
+
+    phase = "focus";
+
+    try {
+      remainingMs = getCurrentDuration();
+    } catch (error) {
+      remainingMs = 0;
+      statusText.textContent = (error as Error).message;
+    }
+
+    statusText.textContent = "Break finished. Ready to focus?";
+    startButton.disabled = false;
+    startButton.textContent = "Start";
+    pauseButton.disabled = true;
+
+    // Music stays paused until the user starts focusing again
+    render();
+  }
+
+  // Recalculate using the real deadline
+  function updateTimer(): void {
+    if (deadline === null) return;
+
+    refreshDailyStats();
+
+    remainingMs = Math.max(0, deadline - Date.now());
+
+    if (remainingMs === 0) {
+      if (phase === "focus") {
+        completeFocusSession();
+      } else {
+        completeBreak();
+      }
+
+      return;
+    }
+
+    render();
+  }
+
+  function startTimer(): void {
+    if (deadline !== null) return;
+
+    if (remainingMs <= 0) {
+      try {
+        remainingMs = getCurrentDuration();
+      } catch (error) {
+        statusText.textContent = (error as Error).message;
+        return;
+      }
+    }
+
+    deadline = Date.now() + remainingMs;
+
+    statusText.textContent =
+      phase === "focus"
+        ? "Focus session in progress"
+        : "Break in progress";
+
+    startButton.disabled = true;
+    pauseButton.disabled = false;
+
+    // Music plays only during focus sessions
+    if (phase === "focus") {
+      playMusic();
+    } else {
+      pauseMusic();
+    }
+
+    interval = setInterval(updateTimer, 200);
+
+    updateTimer();
+  }
+
+  function pauseTimer(): void {
+    if (deadline === null) return;
+
+    remainingMs = Math.max(0, deadline - Date.now());
+
+    if (remainingMs === 0) {
+      if (phase === "focus") {
+        completeFocusSession();
+      } else {
+        completeBreak();
+      }
+      return;
+    }
+
+    stopInterval();
+    deadline = null;
+
+    // Pause music when the focus timer is paused
+    pauseMusic();
+
+    statusText.textContent =
+      phase === "focus" ? "Focus session paused" : "Break paused";
+
+    startButton.disabled = false;
+    startButton.textContent = "Resume";
+    pauseButton.disabled = true;
+
+    render();
+  }
+
+  function resetTimer(): void {
+    stopInterval();
+    deadline = null;
+
+    pauseMusic();
+
+    try {
+      remainingMs = getCurrentDuration();
+    } catch (error) {
+      statusText.textContent = (error as Error).message;
+      return;
+    }
+
+    statusText.textContent =
+      phase === "focus" ? "Ready to focus" : "Ready for a break";
+
+    startButton.disabled = false;
+    startButton.textContent =
+      phase === "focus" ? "Start" : "Start break";
+
+    pauseButton.disabled = true;
+
+    render();
+  }
+
+  // Changing the focus duration resets the current focus timer
+  durationInput.addEventListener("change", () => {
+    if (phase === "focus") {
+      resetTimer();
+    }
+  });
+
+  // Changing the break duration resets the current break timer
+  breakDurationInput.addEventListener("change", () => {
+    if (phase === "break") {
+      resetTimer();
+    }
+  });
+
+  startButton.addEventListener("click", startTimer);
+  pauseButton.addEventListener("click", pauseTimer);
+  resetButton.addEventListener("click", resetTimer);
+
+  // Recalculate when returning to the browser tab
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+      updateTimer();
+      refreshDailyStats();
+    }
+  });
+
+  // Initial display
+  render();
+</script>
+
+<style>
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #f5f3ef;
+    background:
+      linear-gradient(rgba(10, 10, 15, 0.25), rgba(10, 10, 15, 0.40)),
+      url("/background.jpg") center center / cover no-repeat fixed;
+  }
+
+  .timer-app {
+    width: min(100% - 32px, 448px);
+    margin: 70px auto;
+    text-align: center;
+  }
+
+  .timer {
+    padding: 30px 28px 32px;
+    border: 1px solid rgba(210, 205, 195, 0.35);
+    border-radius: 21px;
+    background: rgba(35, 32, 28, 0.45);
+    box-shadow: 0 8px 35px rgba(0, 0, 0, 0.12);
+    backdrop-filter: blur(8px);
+  }
+
+  .timer-icon {
+    color: #ffffff;
+    filter: grayscale(1) brightness(0) invert(1);
+    font-size: 25px;
+    height: 28px;
+    margin-bottom: 13px;
+  }
+
+  .display {
+    color: #f5f3ef;
+    font-size: clamp(65px, 15vw, 84px);
+    line-height: 1.15;
+    font-weight: 400;
+    letter-spacing: 1px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  #phase {
+    margin: 12px 0 22px;
+    color: #fff;
+    font-size: 11px;
+    letter-spacing: 2px;
+  }
+
+  .duration-settings {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  font-size: 20px;
+}
+
+.duration-settings input {
+  width: 75px;
+  padding: 8px;
+  font-size: 20px;
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+  position: relative;
+  width: 75px;
+  padding: 8px;
+  font-size: 20px;
+  border-radius: 0;
+  border-left: none;
+  border-top: 1px solid transparent;
+  border-bottom: 1px solid transparent;
+  background:
+    linear-gradient(to right, transparent, currentColor) top,
+    linear-gradient(to right, transparent, currentColor) bottom;
+  background-size: 100% 1px;
+  background-repeat: no-repeat;
+}
+
+  .setting {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+
+  label {
+    color: #fff;
+    font-size: 13px;
+  }
+
+  input {
+    color-scheme: dark;
+    width: 65px;
+    padding: 6px 8px;
+    text-align: center;
+    border: 1px solid rgba(210, 205, 195, 0.4);
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #f5f3ef;
+    font: inherit;
+    font-size: 13px;
+    outline: none;
+  }
+
+  input:focus {
+    border-color: #9baac0;
+  }
+
+  #status {
+	display: none;
+    color: #9baac0;
+    min-height: 17px;
+    margin: 17px 0 0;
+    font-size: 12px;
+  }
+
+  .controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-top: 20px;
+  }
+
+  button {
+    padding: 13px 29px;
+    border: 1px solid rgba(210, 205, 195, 0.4);
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.045);
+    color: #f5f3ef;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.2s, border-color 0.2s;
+  }
+
+  button:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(210, 205, 195, 0.7);
+  }
+
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  #start {
+    min-width: 100px;
+  }
+
+  .statistics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 32px;
+  }
+
+  .stat-card {
+    padding: 17px 10px 15px;
+    border: 1px solid rgba(210, 205, 195, 0.35);
+    border-radius: 19px;
+    background: rgba(35, 32, 28, 0.4);
+    backdrop-filter: blur(8px);
+  }
+
+  .history-card {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+  }
+
+  .history-toggle {
+  width: 100%;
+  min-height: 54px;
+  padding: 12px 18px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #f5f3ef;
+  font-size: 22px;
+  font-weight: 500;
+}
+
+.history-toggle:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+}
+
+  .history-panel {
+    margin-top: 16px;
+    padding: 20px 22px;
+    border-radius: 19px;
+    background: rgba(67, 66, 64, 0.02);
+    text-align: left;
+    backdrop-filter: blur(8px);
+  }
+
+  .history-panel h2 {
+    margin: 0;
+    color: #efebe7;
+    font-size: 17px;
+    font-weight: 500;
+  }
+
+  .history-total {
+    margin: 8px 0 14px;
+    color: #9baac0;
+    font-size: 12px;
+  }
+
+  .history-list {
+    display: grid;
+    gap: 9px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .history-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  }
+
+  .history-item span:last-child,
+  .history-empty {
+    color: #9baac0;
+  }
+
+  .history-empty {
+    font-size: 13px;
+  }
+
+  .stat-number {
+    color: #f5f3ef;
+    margin: 0;
+    font-size: 31px;
+    line-height: 1.2;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stat-label {
+    margin: 3px 0 0;
+    color: #9baac0;
+    font-size: 12px;
+  }
+
+.music-section {
+  margin-top: 30px;
+}
+
+/* Keep the Music button near the upper-right, with breathing room from the edge. */
+@media (min-width: 900px) {
+  .music-section {
+    position: fixed;
+    top: 35px;
+    right: clamp(32px, calc((100vw - 1100px) / 2), 150px);
+    margin-top: 0;
+    z-index: 10;
+  }
+
+  .music-panel {
+    width: 270px;
+    margin-left: auto;
+  }
+}
+
+  .music-toggle {
+    padding: 9px 18px;
+    color: #9baac0;
+    font-size: 13px;
+  }
+
+  .music-toggle span {
+    margin-right: 5px;
+    font-size: 16px;
+  }
+
+  .music-panel {
+    color: #f5f3ef;
+    margin-top: 17px;
+    padding: 22px;
+    border: 1px solid rgba(210, 205, 195, 0.35);
+    border-radius: 18px;
+    background: rgba(35, 32, 28, 0.65);
+    text-align: left;
+  }
+
+  .music-panel h2 {
+    color: #f5f3ef;
+    margin: 0;
+    font-size: 17px;
+    font-weight: 500;
+  }
+
+  .music-panel > p {
+    color: #9baac0;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .music-input-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .music-input-row input {
+    width: 100%;
+    min-width: 0;
+    border-radius: 8px;
+    text-align: left;
+    padding: 10px;
+  }
+
+  .music-input-row button {
+    padding: 9px 16px;
+    border-radius: 8px;
+  }
+
+  #music-status {
+    min-height: 16px;
+  }
+
+  #music-player-container {
+    margin-top: 15px;
+  }
+
+  .music-note {
+    margin-bottom: 0;
+  }
+
+  [hidden] {
+    display: none !important;
+  }
+
+  @media (max-width: 430px) {
+    .timer-app {
+      margin: 35px auto;
+    }
+
+    .timer {
+      padding: 25px 16px;
+    }
+
+    .duration-settings {
+      gap: 12px;
+    }
+
+    .setting {
+      gap: 6px;
+    }
+
+    .controls {
+      gap: 7px;
+    }
+
+    button {
+      padding: 11px 20px;
+    }
+  }
+  /* Compact, visible YouTube player. Keep at least 200 × 200 for YouTube. */
+  .youtube-player-frame {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    max-width: 100%;
+    margin: 12px auto 0;
+    overflow: hidden;
+    border-radius: 10px;
+    background: #000;
+  }
+
+  .youtube-player-frame iframe {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+</style>
