@@ -14,6 +14,8 @@
   </head>
 
   <body>
+  <div id="background-layer"></div>
+  <div id="background-next"></div>
     <main class="timer-app">
       <section class="timer" aria-label="Pomodoro timer">
 
@@ -128,6 +130,7 @@
         </div>
       </section>
     </main>
+    <img src="/signature.svg" alt="Signature" class="signature" />
   </body>
 </html>
 
@@ -794,63 +797,128 @@
 
   // Initial display
   render();
+  
+  // Automatic background rotation
+const backgrounds = [
+  "/backgrounds/background1.jpg",
+  "/backgrounds/background2.jpg",
+  "/backgrounds/background3.jpg",
+  "/backgrounds/background4.jpg",
+  "/backgrounds/background5.jpg",
+  "/backgrounds/background6.jpg",
+  "/backgrounds/background7.jpg",
+  "/backgrounds/background8.jpg"
+
+];
+
+let currentBackground = 0;
+
+const backgroundLayer = document.getElementById("background-layer")!;
+const nextBackground = document.getElementById("background-next")!;
+
+function changeBackground() {
+  currentBackground = (currentBackground + 1) % backgrounds.length;
+
+  nextBackground.style.backgroundImage = `
+    linear-gradient(rgba(0, 0, 0, 0.30), rgba(0, 0, 0, 0.30)),
+    url("${backgrounds[currentBackground]}")
+  `;
+
+  nextBackground.style.opacity = "1";
+  backgroundLayer.style.opacity = "0";
+
+  setTimeout(() => {
+    backgroundLayer.style.backgroundImage =
+      nextBackground.style.backgroundImage;
+
+    backgroundLayer.style.opacity = "1";
+    nextBackground.style.opacity = "0";
+  }, 8000);
+}
+
+// Change background every 5 minutes
+setInterval(changeBackground, 10 * 60 * 1000);
 </script>
 
 <style>
-  * {
-    box-sizing: border-box;
-  }
+  
+* {
+  box-sizing: border-box;
+}
 
-  body {
-    margin: 0;
-    min-height: 100vh;
-    font-family: Arial, Helvetica, sans-serif;
-    color: #f5f3ef;
-    background:
-      linear-gradient(rgba(10, 10, 15, 0.25), rgba(10, 10, 15, 0.40)),
-      url("/background.jpg") center center / cover no-repeat fixed;
-  }
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #f5f3ef;
+  background:
+  linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)),
+  url("/backgrounds/background1.jpg") center center / cover no-repeat fixed;
+}
 
-  .timer-app {
-    width: min(100% - 32px, 448px);
-    margin: 70px auto;
-    text-align: center;
-  }
+.timer-app {
+  width: min(100% - 32px, 448px);
+  margin: 70px auto;
+  text-align: center;
+}
 
-  .timer {
-    padding: 30px 28px 32px;
-    border: 1px solid rgba(210, 205, 195, 0.35);
-    border-radius: 21px;
-    background: rgba(35, 32, 28, 0.45);
-    box-shadow: 0 8px 35px rgba(0, 0, 0, 0.12);
-    backdrop-filter: blur(8px);
-  }
+/* Main timer glass panel */
+.timer {
+  padding: 30px 28px 32px;
+  border-radius: 21px;
+  border: 2px solid rgba(245, 238, 238, 0.31);
+  box-shadow: 15px 14px 35px rgba(0, 0, 0, 0.12);
+  background: rgba(26, 25, 25, 0.28);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(5px);
+}
 
-  .timer-icon {
-    color: #ffffff;
-    filter: grayscale(1) brightness(0) invert(1);
-    font-size: 25px;
-    height: 28px;
-    margin-bottom: 13px;
-  }
+.timer-icon {
+  color: #ffffff;
+  filter: grayscale(1) brightness(0) invert(1);
+  font-size: 25px;
+  height: 28px;
+  margin-bottom: 13px;
+}
 
-  .display {
-    color: #f5f3ef;
-    font-size: clamp(65px, 15vw, 84px);
-    line-height: 1.15;
-    font-weight: 400;
-    letter-spacing: 1px;
-    font-variant-numeric: tabular-nums;
-  }
+#background-layer,
+#background-next {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-position: center center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  transition: opacity 8s ease-in-out;
+}
 
-  #phase {
-    margin: 12px 0 22px;
-    color: #fff;
-    font-size: 11px;
-    letter-spacing: 2px;
-  }
+#background-layer {
+  opacity: 1;
+}
 
-  .duration-settings {
+#background-next {
+  opacity: 0;
+}
+
+.display {
+  color: #f5f3ef;
+  font-size: clamp(65px, 15vw, 84px);
+  line-height: 1.15;
+  font-weight: 400;
+  letter-spacing: 1px;
+  font-variant-numeric: tabular-nums;
+}
+
+#phase {
+  margin: 12px 0 22px;
+  color: #fff;
+  font-size: 11px;
+  letter-spacing: 2px;
+}
+
+/* Focus and break duration settings */
+.duration-settings {
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -867,11 +935,6 @@
   border-left: none;
   border-right: none;
   position: relative;
-  width: 75px;
-  padding: 8px;
-  font-size: 20px;
-  border-radius: 0;
-  border-left: none;
   border-top: 1px solid transparent;
   border-bottom: 1px solid transparent;
   background:
@@ -881,99 +944,102 @@
   background-repeat: no-repeat;
 }
 
-  .setting {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-  }
+.setting {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
 
-  label {
-    color: #fff;
-    font-size: 13px;
-  }
+label {
+  color: #fff;
+  font-size: 13px;
+}
 
-  input {
-    color-scheme: dark;
-    width: 65px;
-    padding: 6px 8px;
-    text-align: center;
-    border: 1px solid rgba(210, 205, 195, 0.4);
-    border-radius: 22px;
-    background: rgba(255, 255, 255, 0.04);
-    color: #f5f3ef;
-    font: inherit;
-    font-size: 13px;
-    outline: none;
-  }
+/* General input styling */
+input {
+  color-scheme: dark;
+  width: 65px;
+  padding: 6px 8px;
+  text-align: center;
+  border: 1px solid rgba(210, 205, 195, 0.4);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #f5f3ef;
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
 
-  input:focus {
-    border-color: #9baac0;
-  }
+input:focus {
+  border-color: #9baac0;
+}
 
-  #status {
-	display: none;
-    color: #9baac0;
-    min-height: 17px;
-    margin: 17px 0 0;
-    font-size: 12px;
-  }
+#status {
+  display: none;
+  color: #9baac0;
+  min-height: 17px;
+  margin: 17px 0 0;
+  font-size: 12px;
+}
 
-  .controls {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 12px;
-    margin-top: 20px;
-  }
+/* Timer controls */
+.controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+}
 
-  button {
-    padding: 13px 29px;
-    border: 1px solid rgba(210, 205, 195, 0.4);
-    border-radius: 24px;
-    background: rgba(255, 255, 255, 0.045);
-    color: #f5f3ef;
-    cursor: pointer;
-    font-size: 14px;
-    transition: background 0.2s, border-color 0.2s;
-  }
+/* RESTORED ORIGINAL GENERAL BUTTON STYLING */
+button {
+  padding: 13px 29px;
+  border: 1px solid rgba(210, 205, 195, 0.4);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.045);
+  color: #f5f3ef92;
+  cursor: pointer;
+  font-size: 18px;
+  transition: background 0.2s, border-color 0.2s;
+}
 
-  button:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(210, 205, 195, 0.7);
-  }
+button:hover:not(:disabled) {
+  background: rgba(169, 174, 184, 0.23);
+  border-color: rgba(99, 99, 94, 0.3);
+}
 
-  button:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
 
-  #start {
-    min-width: 100px;
-  }
 
-  .statistics {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-top: 32px;
-  }
+#start {
+  min-width: 100px;
+}
 
-  .stat-card {
-    padding: 17px 10px 15px;
-    border: 1px solid rgba(210, 205, 195, 0.35);
-    border-radius: 19px;
-    background: rgba(35, 32, 28, 0.4);
-    backdrop-filter: blur(8px);
-  }
+/* Statistics */
+.statistics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 32px;
+}
 
-  .history-card {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 10px;
-  }
+.stat-card {
+  padding: 17px 10px 15px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  background: rgba(20, 25, 35, 0.12);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+}
 
-  .history-toggle {
+.history-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+}
+
+.history-toggle {
   width: 100%;
   min-height: 54px;
   padding: 12px 18px;
@@ -991,73 +1057,147 @@
   border-color: transparent;
 }
 
-  .history-panel {
-    margin-top: 16px;
-    padding: 20px 22px;
-    border-radius: 19px;
-    background: rgba(67, 66, 64, 0.02);
-    text-align: left;
-    backdrop-filter: blur(8px);
-  }
+.stat-number {
+  color: #f5f3ef;
+  margin: 0;
+  font-size: 31px;
+  line-height: 1.2;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
 
-  .history-panel h2 {
-    margin: 0;
-    color: #efebe7;
-    font-size: 17px;
-    font-weight: 500;
-  }
+.stat-label {
+  margin: 3px 0 0;
+  color: #9baac0;
+  font-size: 12px;
+}
 
-  .history-total {
-    margin: 8px 0 14px;
-    color: #9baac0;
-    font-size: 12px;
-  }
+/* History panel */
+.history-panel {
+  margin-top: 16px;
+  padding: 20px 22px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 19px;
+  text-align: left;
+  background: rgba(39, 40, 43, 0.08);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+}
 
-  .history-list {
-    display: grid;
-    gap: 9px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
+.history-panel h2 {
+  margin: 0;
+  color: #efebe7;
+  font-size: 17px;
+  font-weight: 500;
+}
 
-  .history-item {
+.history-total {
+  margin: 8px 0 14px;
+  color: #9baac0;
+  font-size: 12px;
+}
+
+.history-list {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.history-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 16px;
   flex-wrap: wrap;
-  }
+}
 
-  .history-item span:last-child,
-  .history-empty {
-    color: #9baac0;
-  }
+.history-item span:last-child,
+.history-empty {
+  color: #9baac0;
+}
 
-  .history-empty {
-    font-size: 13px;
-  }
+.history-empty {
+  font-size: 13px;
+}
 
-  .stat-number {
-    color: #f5f3ef;
-    margin: 0;
-    font-size: 31px;
-    line-height: 1.2;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .stat-label {
-    margin: 3px 0 0;
-    color: #9baac0;
-    font-size: 12px;
-  }
-
+/* Music */
 .music-section {
   margin-top: 30px;
 }
 
-/* Keep the Music button near the upper-right, with breathing room from the edge. */
+.music-toggle {
+  padding: 9px 18px;
+  color: #9baac0;
+  font-size: 13px;
+}
+
+.music-toggle span {
+  margin-right: 5px;
+  font-size: 16px;
+}
+
+/* Music glass panel */
+.music-panel {
+  color: #f5f3ef;
+  margin-top: 17px;
+  padding: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 18px;
+  text-align: left;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  background: rgba(20, 25, 35, 0);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+.music-panel h2 {
+  color: #f5f3ef;
+  margin: 0;
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.music-panel > p {
+  color: #9baac0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.music-input-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.music-input-row input {
+  width: 100%;
+  min-width: 0;
+  border-radius: 8px;
+  text-align: left;
+  padding: 10px;
+}
+
+.music-input-row button {
+  padding: 9px 16px;
+  border-radius: 8px;
+}
+
+#music-status {
+  min-height: 16px;
+}
+
+#music-player-container {
+  margin-top: 15px;
+}
+
+.music-note {
+  margin-bottom: 0;
+}
+
+/* Desktop music positioning */
 @media (min-width: 900px) {
   .music-section {
     position: fixed;
@@ -1073,116 +1213,66 @@
   }
 }
 
-  .music-toggle {
-    padding: 9px 18px;
-    color: #9baac0;
-    font-size: 13px;
+/* Hide elements controlled by JavaScript */
+[hidden] {
+  display: none !important;
+}
+
+/* Mobile adjustments */
+@media (max-width: 430px) {
+  .timer-app {
+    margin: 35px auto;
   }
 
-  .music-toggle span {
-    margin-right: 5px;
-    font-size: 16px;
+  .timer {
+    padding: 25px 16px;
   }
 
-  .music-panel {
-    color: #f5f3ef;
-    margin-top: 17px;
-    padding: 22px;
-    border: 1px solid rgba(210, 205, 195, 0.35);
-    border-radius: 18px;
-    background: rgba(35, 32, 28, 0.65);
-    text-align: left;
+  .duration-settings {
+    gap: 12px;
   }
 
-  .music-panel h2 {
-    color: #f5f3ef;
-    margin: 0;
-    font-size: 17px;
-    font-weight: 500;
+  .setting {
+    gap: 6px;
   }
 
-  .music-panel > p {
-    color: #9baac0;
-    font-size: 12px;
-    line-height: 1.5;
+  .controls {
+    gap: 7px;
   }
 
-  .music-input-row {
-    display: flex;
-    gap: 8px;
-    margin-top: 14px;
+  button {
+    padding: 11px 20px;
   }
+}
 
-  .music-input-row input {
-    width: 100%;
-    min-width: 0;
-    border-radius: 8px;
-    text-align: left;
-    padding: 10px;
-  }
+/* YouTube player */
+.youtube-player-frame {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  max-width: 100%;
+  margin: 12px auto 0;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #000;
+}
 
-  .music-input-row button {
-    padding: 9px 16px;
-    border-radius: 8px;
-  }
+.youtube-player-frame iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
 
-  #music-status {
-    min-height: 16px;
-  }
-
-  #music-player-container {
-    margin-top: 15px;
-  }
-
-  .music-note {
-    margin-bottom: 0;
-  }
-
-  [hidden] {
-    display: none !important;
-  }
-
-  @media (max-width: 430px) {
-    .timer-app {
-      margin: 35px auto;
-    }
-
-    .timer {
-      padding: 25px 16px;
-    }
-
-    .duration-settings {
-      gap: 12px;
-    }
-
-    .setting {
-      gap: 6px;
-    }
-
-    .controls {
-      gap: 7px;
-    }
-
-    button {
-      padding: 11px 20px;
-    }
-  }
-  /* Compact, visible YouTube player. Keep at least 200 × 200 for YouTube. */
-  .youtube-player-frame {
-    position: relative;
-    width: 200px;
-    height: 200px;
-    max-width: 100%;
-    margin: 12px auto 0;
-    overflow: hidden;
-    border-radius: 10px;
-    background: #000;
-  }
-
-  .youtube-player-frame iframe {
-    display: block;
-    width: 100%;
-    height: 100%;
-    border: 0;
-  }
+/* Signature */
+.signature {
+  position: fixed;
+  bottom: 10px;
+  left: 20px;
+  width: 45px;
+  height: auto;
+  opacity: 1;
+  z-index: 10;
+  pointer-events: none;
+}
 </style>
