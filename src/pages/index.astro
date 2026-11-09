@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="en">
   <head>
@@ -14,11 +13,11 @@
   </head>
 
   <body>
-  <div id="background-layer"></div>
-  <div id="background-next"></div>
+    <div id="background-layer"></div>
+    <div id="background-next"></div>
+
     <main class="timer-app">
       <section class="timer" aria-label="Pomodoro timer">
-
         <div id="phase-icon" class="timer-icon" aria-hidden="true">👓</div>
 
         <div
@@ -130,6 +129,7 @@
         </div>
       </section>
     </main>
+
     <img src="/signature.svg" alt="Signature" class="signature" />
   </body>
 </html>
@@ -143,7 +143,8 @@
 
   const display =
     document.querySelector<HTMLDivElement>("#display")!;
-	const phaseIcon =
+
+  const phaseIcon =
     document.querySelector<HTMLDivElement>("#phase-icon")!;
 
   const phaseDisplay =
@@ -206,6 +207,12 @@
   let remainingMs = getDuration(durationInput);
   let deadline: number | null = null;
   let interval: ReturnType<typeof setInterval> | null = null;
+  let isPaused = false;
+
+  // The music panel closes itself 5 minutes into a focus session (music keeps playing)
+  const MUSIC_PANEL_AUTO_CLOSE_MS = 5 * 60 * 1000;
+  let focusSessionTotalMs = 0;
+  let musicPanelAutoClosed = false;
 
   let completedSessions = loadCompletedSessions();
 
@@ -277,19 +284,18 @@
       const sessionLabel = document.createElement("span");
       sessionLabel.textContent = `Pomodoro ${index + 1}`;
 
-      const sessionDetails = document.createElement("span");
       const completedTime = new Date(session.completedAt).toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit"
       });
-	  sessionDetails.textContent = ` — ${completedTime} · ${session.minutes} min`;
+
+      const sessionDetails = document.createElement("span");
+      sessionDetails.textContent = ` — ${completedTime} · ${session.minutes} min`;
 
       item.append(sessionLabel, sessionDetails);
       historyList.appendChild(item);
     });
   }
-
-  // Music state is declared with the YouTube player below.
 
   // Get a selected duration in milliseconds
   function getDuration(input: HTMLInputElement): number {
@@ -343,7 +349,6 @@
 
   // Daily counters intentionally start at zero whenever the page is loaded.
   // Completed sessions are still recorded separately in sessionHistory.
-
   function saveDailyStats(): void {
     try {
       localStorage.setItem(
@@ -360,7 +365,7 @@
   }
 
   // Reset daily counters only when the calendar day changes.
-  // Do not reload saved counts: Today starts at zero on every page reload.
+  // Saved counts are not reloaded: Today starts at zero on every page reload.
   function refreshDailyStats(): void {
     try {
       const saved = localStorage.getItem("spaceyfocus-daily-stats");
@@ -390,17 +395,17 @@
   }
 
   function render(): void {
-  display.textContent = formatTime(remainingMs);
+    display.textContent = formatTime(remainingMs);
 
-  phaseDisplay.textContent =
-    phase === "focus" ? "FOCUS SESSION" : "BREAK TIME";
+    phaseDisplay.textContent =
+      phase === "focus" ? "FOCUS SESSION" : "BREAK TIME";
 
-  phaseIcon.textContent =
-    phase === "focus" ? "👓" : "🌳";
+    phaseIcon.textContent =
+      phase === "focus" ? "👓" : "🌳";
 
-  todayCountDisplay.textContent = String(todaySessions);
-  renderHistory();
-}
+    todayCountDisplay.textContent = String(todaySessions);
+    renderHistory();
+  }
 
   function stopInterval(): void {
     if (interval !== null) {
@@ -432,6 +437,7 @@
       if (host === "youtu.be") {
         const videoId = url.pathname.split("/").filter(Boolean)[0];
         const playlistId = url.searchParams.get("list");
+
         if (videoId) return `https://www.youtube.com/embed/${videoId}`;
         if (playlistId) {
           return `https://www.youtube.com/embed/videoseries?list=${encodeURIComponent(playlistId)}`;
@@ -473,12 +479,16 @@
     const playlistId = url.searchParams.get("list");
 
     // Recreate the target element after destroying a previously loaded player.
-    musicPlayerContainer.innerHTML = '<div class="youtube-player-frame"><div id="youtube-player"></div></div>';
+    musicPlayerContainer.innerHTML = `
+      <div class="youtube-player-frame">
+        <div id="youtube-player"></div>
+      </div>
+    `;
 
     ytPlayer = new window.YT.Player("youtube-player", {
       // YouTube's minimum supported embedded-player viewport is 200 × 200.
-      height: "200",
-      width: "200",
+      height: "250",
+      width: "250",
       ...(videoId && videoId !== "videoseries" ? { videoId } : {}),
       playerVars: {
         autoplay: 0,
@@ -559,10 +569,13 @@
     loadYouTubeAPI();
   }
 
+  function setMusicPanelOpen(open: boolean): void {
+    musicPanel.hidden = !open;
+    musicToggle.setAttribute("aria-expanded", String(open));
+  }
+
   musicToggle.addEventListener("click", () => {
-    const isOpen = !musicPanel.hidden;
-    musicPanel.hidden = isOpen;
-    musicToggle.setAttribute("aria-expanded", String(!isOpen));
+    setMusicPanelOpen(musicPanel.hidden);
   });
 
   loadMusicButton.addEventListener("click", loadMusic);
@@ -584,6 +597,7 @@
     todaySessions++;
 
     const completedMinutes = Math.round(getDuration(durationInput) / 60000);
+
     sessionHistory.push({
       date: getTodayKey(),
       completedAt: new Date().toISOString(),
@@ -591,11 +605,7 @@
     });
     saveSessionHistory();
 
-    try {
-      todayMinutes += completedMinutes;
-    } catch {
-      // Keep the existing statistics if the input is invalid.
-    }
+    todayMinutes += completedMinutes;
 
     saveCompletedSessions();
     saveDailyStats();
@@ -614,22 +624,28 @@
       deadline = null;
       remainingMs = 0;
 
+      isPaused = false;
       statusText.textContent = (error as Error).message;
       startButton.disabled = false;
-      startButton.textContent = "Start break";
+      startButton.textContent = "Start";
       pauseButton.disabled = true;
+      pauseButton.textContent = "Pause";
 
       render();
       return;
     }
 
-    // Start the break immediately
-    deadline = Date.now() + remainingMs;
+    stopInterval();
+    deadline = null;
+    isPaused = false;
 
     statusText.textContent = "Focus complete! Enjoy your break.";
-    startButton.disabled = true;
-    startButton.textContent = "Break in progress";
-    pauseButton.disabled = false;
+
+    startButton.disabled = false;
+    startButton.textContent = "Start";
+
+    pauseButton.disabled = true;
+    pauseButton.textContent = "Pause";
 
     render();
   }
@@ -651,9 +667,13 @@
     }
 
     statusText.textContent = "Break finished. Ready to focus?";
+    isPaused = false;
+
     startButton.disabled = false;
     startButton.textContent = "Start";
+
     pauseButton.disabled = true;
+    pauseButton.textContent = "Pause";
 
     // Music stays paused until the user starts focusing again
     render();
@@ -667,6 +687,15 @@
 
     remainingMs = Math.max(0, deadline - Date.now());
 
+    if (
+      phase === "focus" &&
+      !musicPanelAutoClosed &&
+      focusSessionTotalMs - remainingMs >= MUSIC_PANEL_AUTO_CLOSE_MS
+    ) {
+      musicPanelAutoClosed = true;
+      setMusicPanelOpen(false);
+    }
+
     if (remainingMs === 0) {
       if (phase === "focus") {
         completeFocusSession();
@@ -680,6 +709,7 @@
     render();
   }
 
+  // Start the timer
   function startTimer(): void {
     if (deadline !== null) return;
 
@@ -692,17 +722,23 @@
       }
     }
 
+    focusSessionTotalMs = remainingMs;
+    musicPanelAutoClosed = false;
+
     deadline = Date.now() + remainingMs;
+    isPaused = false;
 
     statusText.textContent =
       phase === "focus"
         ? "Focus session in progress"
         : "Break in progress";
 
-    startButton.disabled = true;
-    pauseButton.disabled = false;
+    startButton.disabled = false;
+    startButton.textContent = "Skip";
 
-    // Music plays only during focus sessions
+    pauseButton.disabled = false;
+    pauseButton.textContent = "Pause";
+
     if (phase === "focus") {
       playMusic();
     } else {
@@ -710,36 +746,127 @@
     }
 
     interval = setInterval(updateTimer, 200);
-
     updateTimer();
   }
 
-  function pauseTimer(): void {
-    if (deadline === null) return;
+  // Pause or resume the timer
+  function togglePauseTimer(): void {
+    // If running, pause it
+    if (deadline !== null) {
+      remainingMs = Math.max(0, deadline - Date.now());
 
-    remainingMs = Math.max(0, deadline - Date.now());
-
-    if (remainingMs === 0) {
-      if (phase === "focus") {
-        completeFocusSession();
-      } else {
-        completeBreak();
+      if (remainingMs === 0) {
+        if (phase === "focus") {
+          completeFocusSession();
+        } else {
+          completeBreak();
+        }
+        return;
       }
+
+      stopInterval();
+      deadline = null;
+      isPaused = true;
+
+      pauseMusic();
+
+      statusText.textContent =
+        phase === "focus" ? "Focus session paused" : "Break paused";
+
+      startButton.disabled = false;
+      startButton.textContent = "Skip";
+
+      pauseButton.disabled = false;
+      pauseButton.textContent = "Resume";
+
+      render();
       return;
     }
 
+    // If paused, resume it
+    if (isPaused) {
+      deadline = Date.now() + remainingMs;
+      isPaused = false;
+
+      statusText.textContent =
+        phase === "focus"
+          ? "Focus session in progress"
+          : "Break in progress";
+
+      startButton.disabled = false;
+      startButton.textContent = "Skip";
+
+      pauseButton.disabled = false;
+      pauseButton.textContent = "Pause";
+
+      if (phase === "focus") {
+        playMusic();
+      }
+
+      interval = setInterval(updateTimer, 200);
+      updateTimer();
+    }
+  }
+
+  // Skip the current phase
+  function skipCurrentPhase(): void {
     stopInterval();
     deadline = null;
+    isPaused = false;
 
-    // Pause music when the focus timer is paused
     pauseMusic();
 
-    statusText.textContent =
-      phase === "focus" ? "Focus session paused" : "Break paused";
+    // Skip focus and move to the break
+    if (phase === "focus") {
+      phase = "break";
+
+      try {
+        remainingMs = getCurrentDuration();
+      } catch (error) {
+        statusText.textContent = (error as Error).message;
+
+        startButton.disabled = false;
+        startButton.textContent = "Start";
+
+        pauseButton.disabled = true;
+        pauseButton.textContent = "Pause";
+
+        render();
+        return;
+      }
+
+      statusText.textContent = "Focus skipped. Ready for a break?";
+
+      startButton.disabled = false;
+      startButton.textContent = "Start";
+
+      pauseButton.disabled = true;
+      pauseButton.textContent = "Pause";
+
+      render();
+      return;
+    }
+
+    // Skip break and return to focus mode
+    phase = "focus";
+
+    try {
+      remainingMs = getCurrentDuration();
+    } catch (error) {
+      statusText.textContent = (error as Error).message;
+      startButton.textContent = "Start";
+      pauseButton.disabled = true;
+      render();
+      return;
+    }
+
+    statusText.textContent = "Break skipped. Ready to focus?";
 
     startButton.disabled = false;
-    startButton.textContent = "Resume";
+    startButton.textContent = "Start";
+
     pauseButton.disabled = true;
+    pauseButton.textContent = "Pause";
 
     render();
   }
@@ -747,6 +874,7 @@
   function resetTimer(): void {
     stopInterval();
     deadline = null;
+    isPaused = false;
 
     pauseMusic();
 
@@ -761,10 +889,10 @@
       phase === "focus" ? "Ready to focus" : "Ready for a break";
 
     startButton.disabled = false;
-    startButton.textContent =
-      phase === "focus" ? "Start" : "Start break";
+    startButton.textContent = "Start";
 
     pauseButton.disabled = true;
+    pauseButton.textContent = "Pause";
 
     render();
   }
@@ -783,8 +911,15 @@
     }
   });
 
-  startButton.addEventListener("click", startTimer);
-  pauseButton.addEventListener("click", pauseTimer);
+  startButton.addEventListener("click", () => {
+    if (deadline !== null || isPaused) {
+      skipCurrentPhase();
+    } else {
+      startTimer();
+    }
+  });
+
+  pauseButton.addEventListener("click", togglePauseTimer);
   resetButton.addEventListener("click", resetTimer);
 
   // Recalculate when returning to the browser tab
@@ -797,482 +932,499 @@
 
   // Initial display
   render();
-  
+
   // Automatic background rotation
-const backgrounds = [
-  "/backgrounds/background1.jpg",
-  "/backgrounds/background2.jpg",
-  "/backgrounds/background3.jpg",
-  "/backgrounds/background4.jpg",
-  "/backgrounds/background5.jpg",
-  "/backgrounds/background6.jpg",
-  "/backgrounds/background7.jpg",
-  "/backgrounds/background8.jpg"
+  const backgrounds = [
+    "/backgrounds/background1.jpg",
+    "/backgrounds/background2.jpg",
+    "/backgrounds/background3.jpg",
+    "/backgrounds/background4.jpg",
+    "/backgrounds/background5.jpg",
+    "/backgrounds/background6.jpg",
+    "/backgrounds/background7.jpg",
+    "/backgrounds/background8.jpg"
+  ];
 
-];
+  let currentBackground = 0;
 
-let currentBackground = 0;
+  const backgroundLayer = document.getElementById("background-layer")!;
+  const nextBackground = document.getElementById("background-next")!;
 
-const backgroundLayer = document.getElementById("background-layer")!;
-const nextBackground = document.getElementById("background-next")!;
+  function changeBackground() {
+    currentBackground = (currentBackground + 1) % backgrounds.length;
 
-function changeBackground() {
-  currentBackground = (currentBackground + 1) % backgrounds.length;
+    nextBackground.style.backgroundImage = `
+      linear-gradient(rgba(0, 0, 0, 0.30), rgba(0, 0, 0, 0.30)),
+      url("${backgrounds[currentBackground]}")
+    `;
 
-  nextBackground.style.backgroundImage = `
-    linear-gradient(rgba(0, 0, 0, 0.30), rgba(0, 0, 0, 0.30)),
-    url("${backgrounds[currentBackground]}")
-  `;
+    nextBackground.style.opacity = "1";
+    backgroundLayer.style.opacity = "0";
 
-  nextBackground.style.opacity = "1";
-  backgroundLayer.style.opacity = "0";
+    setTimeout(() => {
+      backgroundLayer.style.backgroundImage =
+        nextBackground.style.backgroundImage;
 
-  setTimeout(() => {
-    backgroundLayer.style.backgroundImage =
-      nextBackground.style.backgroundImage;
+      backgroundLayer.style.opacity = "1";
+      nextBackground.style.opacity = "0";
+    }, 8000);
+  }
 
-    backgroundLayer.style.opacity = "1";
-    nextBackground.style.opacity = "0";
-  }, 8000);
-}
-
-// Change background every 5 minutes
-setInterval(changeBackground, 10 * 60 * 1000);
+  // Change background every 10 minutes
+  setInterval(changeBackground, 10 * 60 * 1000);
 </script>
 
 <style>
-  
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  min-height: 100vh;
-  font-family: Arial, Helvetica, sans-serif;
-  color: #f5f3ef;
-  background:
-  linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)),
-  url("/backgrounds/background1.jpg") center center / cover no-repeat fixed;
-}
-
-.timer-app {
-  width: min(100% - 32px, 448px);
-  margin: 70px auto;
-  text-align: center;
-}
-
-/* Main timer glass panel */
-.timer {
-  padding: 30px 28px 32px;
-  border-radius: 21px;
-  border: 2px solid rgba(245, 238, 238, 0.31);
-  box-shadow: 15px 14px 35px rgba(0, 0, 0, 0.12);
-  background: rgba(26, 25, 25, 0.28);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(5px);
-}
-
-.timer-icon {
-  color: #ffffff;
-  filter: grayscale(1) brightness(0) invert(1);
-  font-size: 25px;
-  height: 28px;
-  margin-bottom: 13px;
-}
-
-#background-layer,
-#background-next {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background-position: center center;
-  background-size: cover;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
-  transition: opacity 8s ease-in-out;
-}
-
-#background-layer {
-  opacity: 1;
-}
-
-#background-next {
-  opacity: 0;
-}
-
-.display {
-  color: #f5f3ef;
-  font-size: clamp(65px, 15vw, 84px);
-  line-height: 1.15;
-  font-weight: 400;
-  letter-spacing: 1px;
-  font-variant-numeric: tabular-nums;
-}
-
-#phase {
-  margin: 12px 0 22px;
-  color: #fff;
-  font-size: 11px;
-  letter-spacing: 2px;
-}
-
-/* Focus and break duration settings */
-.duration-settings {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 16px;
-  font-size: 20px;
-}
-
-.duration-settings input {
-  width: 75px;
-  padding: 8px;
-  font-size: 20px;
-  border-radius: 0;
-  border-left: none;
-  border-right: none;
-  position: relative;
-  border-top: 1px solid transparent;
-  border-bottom: 1px solid transparent;
-  background:
-    linear-gradient(to right, transparent, currentColor) top,
-    linear-gradient(to right, transparent, currentColor) bottom;
-  background-size: 100% 1px;
-  background-repeat: no-repeat;
-}
-
-.setting {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-}
-
-label {
-  color: #fff;
-  font-size: 13px;
-}
-
-/* General input styling */
-input {
-  color-scheme: dark;
-  width: 65px;
-  padding: 6px 8px;
-  text-align: center;
-  border: 1px solid rgba(210, 205, 195, 0.4);
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.06);
-  color: #f5f3ef;
-  font: inherit;
-  font-size: 13px;
-  outline: none;
-}
-
-input:focus {
-  border-color: #9baac0;
-}
-
-#status {
-  display: none;
-  color: #9baac0;
-  min-height: 17px;
-  margin: 17px 0 0;
-  font-size: 12px;
-}
-
-/* Timer controls */
-.controls {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 12px;
-  margin-top: 20px;
-}
-
-/* RESTORED ORIGINAL GENERAL BUTTON STYLING */
-button {
-  padding: 13px 29px;
-  border: 1px solid rgba(210, 205, 195, 0.4);
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.045);
-  color: #f5f3ef92;
-  cursor: pointer;
-  font-size: 18px;
-  transition: background 0.2s, border-color 0.2s;
-}
-
-button:hover:not(:disabled) {
-  background: rgba(169, 174, 184, 0.23);
-  border-color: rgba(99, 99, 94, 0.3);
-}
-
-
-
-#start {
-  min-width: 100px;
-}
-
-/* Statistics */
-.statistics {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: 32px;
-}
-
-.stat-card {
-  padding: 17px 10px 15px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 10px;
-  background: rgba(20, 25, 35, 0.12);
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
-}
-
-.history-card {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px;
-}
-
-.history-toggle {
-  width: 100%;
-  min-height: 54px;
-  padding: 12px 18px;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  color: #f5f3ef;
-  font-size: 22px;
-  font-weight: 500;
-}
-
-.history-toggle:hover:not(:disabled) {
-  background: transparent;
-  border-color: transparent;
-}
-
-.stat-number {
-  color: #f5f3ef;
-  margin: 0;
-  font-size: 31px;
-  line-height: 1.2;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.stat-label {
-  margin: 3px 0 0;
-  color: #9baac0;
-  font-size: 12px;
-}
-
-/* History panel */
-.history-panel {
-  margin-top: 16px;
-  padding: 20px 22px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 19px;
-  text-align: left;
-  background: rgba(39, 40, 43, 0.08);
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
-}
-
-.history-panel h2 {
-  margin: 0;
-  color: #efebe7;
-  font-size: 17px;
-  font-weight: 500;
-}
-
-.history-total {
-  margin: 8px 0 14px;
-  color: #9baac0;
-  font-size: 12px;
-}
-
-.history-list {
-  display: grid;
-  gap: 9px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.history-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.history-item span:last-child,
-.history-empty {
-  color: #9baac0;
-}
-
-.history-empty {
-  font-size: 13px;
-}
-
-/* Music */
-.music-section {
-  margin-top: 30px;
-}
-
-.music-toggle {
-  padding: 9px 18px;
-  color: #9baac0;
-  font-size: 13px;
-}
-
-.music-toggle span {
-  margin-right: 5px;
-  font-size: 16px;
-}
-
-/* Music glass panel */
-.music-panel {
-  color: #f5f3ef;
-  margin-top: 17px;
-  padding: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 18px;
-  text-align: left;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-  background: rgba(20, 25, 35, 0);
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
-}
-
-.music-panel h2 {
-  color: #f5f3ef;
-  margin: 0;
-  font-size: 17px;
-  font-weight: 500;
-}
-
-.music-panel > p {
-  color: #9baac0;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.music-input-row {
-  display: flex;
-  gap: 8px;
-  margin-top: 14px;
-}
-
-.music-input-row input {
-  width: 100%;
-  min-width: 0;
-  border-radius: 8px;
-  text-align: left;
-  padding: 10px;
-}
-
-.music-input-row button {
-  padding: 9px 16px;
-  border-radius: 8px;
-}
-
-#music-status {
-  min-height: 16px;
-}
-
-#music-player-container {
-  margin-top: 15px;
-}
-
-.music-note {
-  margin-bottom: 0;
-}
-
-/* Desktop music positioning */
-@media (min-width: 900px) {
-  .music-section {
-    position: fixed;
-    top: 35px;
-    right: clamp(32px, calc((100vw - 1100px) / 2), 150px);
-    margin-top: 0;
-    z-index: 10;
+  * {
+    box-sizing: border-box;
   }
 
-  .music-panel {
-    width: 270px;
-    margin-left: auto;
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #f5f3ef;
+    background:
+      linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)),
+      url("/backgrounds/background1.jpg") center center / cover no-repeat fixed;
   }
-}
 
-/* Hide elements controlled by JavaScript */
-[hidden] {
-  display: none !important;
-}
-
-/* Mobile adjustments */
-@media (max-width: 430px) {
   .timer-app {
-    margin: 35px auto;
+    width: min(100% - 32px, 448px);
+    margin: 70px auto;
+    text-align: center;
   }
 
+  /* Main timer card: no background, only gradient left and right edges */
   .timer {
-    padding: 25px 16px;
+    position: relative;
+    padding: 30px 28px 32px;
   }
 
+  .timer::before,
+  .timer::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    pointer-events: none;
+  }
+
+  /* Left edge: transparent at the top, bright white at the bottom */
+  .timer::before {
+    left: 0;
+    background: linear-gradient(to bottom, transparent, #ffffff);
+  }
+
+  /* Right edge: bright white at the top, transparent at the bottom */
+  .timer::after {
+    right: 0;
+    background: linear-gradient(to bottom, #ffffff, transparent);
+  }
+
+  .timer-icon {
+    color: #ffffff;
+    filter: grayscale(1) brightness(0) invert(1);
+    font-size: 25px;
+    height: 28px;
+    margin-bottom: 13px;
+  }
+
+  #background-layer,
+  #background-next {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background-position: center center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    transition: opacity 8s ease-in-out;
+  }
+
+  #background-layer {
+    opacity: 1;
+  }
+
+  #background-next {
+    opacity: 0;
+  }
+
+  .display {
+    color: #f5f3ef;
+    font-size: clamp(65px, 15vw, 84px);
+    line-height: 1.15;
+    font-weight: 400;
+    letter-spacing: 1px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  #phase {
+    margin: 12px 0 22px;
+    color: #fff;
+    font-size: 11px;
+    letter-spacing: 2px;
+  }
+
+  /* Focus and break duration settings */
   .duration-settings {
-    gap: 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    font-size: 20px;
+  }
+
+  .duration-settings input {
+    width: 75px;
+    padding: 8px;
+    font-size: 20px;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    position: relative;
+    border-top: 1px solid transparent;
+    border-bottom: 1px solid transparent;
+    background:
+      linear-gradient(to right, transparent, currentColor) top,
+      linear-gradient(to right, transparent, currentColor) bottom;
+    background-size: 100% 1px;
+    background-repeat: no-repeat;
   }
 
   .setting {
-    gap: 6px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
   }
 
+  label {
+    color: #fff;
+    font-size: 13px;
+  }
+
+  /* General input styling */
+  input {
+    color-scheme: dark;
+    width: 65px;
+    padding: 6px 8px;
+    text-align: center;
+    border: 1px solid rgba(210, 205, 195, 0.4);
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.06);
+    color: #f5f3ef;
+    font: inherit;
+    font-size: 13px;
+    outline: none;
+  }
+
+  input:focus {
+    border-color: #9baac0;
+  }
+
+  #status {
+    display: none;
+    color: #9baac0;
+    min-height: 17px;
+    margin: 17px 0 0;
+    font-size: 12px;
+  }
+
+  /* Timer controls */
   .controls {
-    gap: 7px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-top: 20px;
   }
 
+  /* General button styling */
   button {
-    padding: 11px 20px;
+    padding: 13px 29px;
+    border: 1px solid rgba(210, 205, 195, 0.4);
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.045);
+    color: #f5f3ef92;
+    cursor: pointer;
+    font-size: 18px;
+    transition: background 0.2s, border-color 0.2s;
   }
-}
 
-/* YouTube player */
-.youtube-player-frame {
-  position: relative;
-  width: 200px;
-  height: 200px;
-  max-width: 100%;
-  margin: 12px auto 0;
-  overflow: hidden;
-  border-radius: 10px;
-  background: #000;
-}
+  button:hover {
+    background: rgba(169, 174, 184, 0.23);
+    border-color: rgba(99, 99, 94, 0.3);
+  }
 
-.youtube-player-frame iframe {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border: 0;
-}
+  #start {
+    min-width: 100px;
+  }
 
-/* Signature */
-.signature {
-  position: fixed;
-  bottom: 10px;
-  left: 20px;
-  width: 45px;
-  height: auto;
-  opacity: 1;
-  z-index: 10;
-  pointer-events: none;
-}
+  /* Statistics */
+  .statistics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 32px;
+  }
+
+  .stat-card {
+    padding: 17px 10px 15px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(20, 25, 35, 0.12);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+  }
+
+  .history-card {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+  }
+
+  .history-toggle {
+    width: 100%;
+    min-height: 54px;
+    padding: 12px 18px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: #f5f3ef;
+    font-size: 22px;
+    font-weight: 500;
+  }
+
+  .history-toggle:hover:not(:disabled) {
+    background: transparent;
+    border-color: transparent;
+  }
+
+  .stat-number {
+    color: #f5f3ef;
+    margin: 0;
+    font-size: 31px;
+    line-height: 1.2;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stat-label {
+    margin: 3px 0 0;
+    color: #9baac0;
+    font-size: 12px;
+  }
+
+  /* History panel */
+  .history-panel {
+    position: fixed;
+    top: 35px;
+    left: clamp(32px, calc((100vw - 1100px) / 2), 150px);
+    z-index: 10;
+    width: min(300px, calc(100vw - 64px));
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
+    padding: 20px 22px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    text-align: left;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  }
+
+  .history-panel h2 {
+    margin: 0;
+    color: #efebe7;
+    font-size: 17px;
+    font-weight: 500;
+  }
+
+  .history-total {
+    margin: 8px 0 14px;
+    color: #9baac0;
+    font-size: 12px;
+  }
+
+  .history-list {
+    display: grid;
+    gap: 9px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .history-item span:last-child,
+  .history-empty {
+    color: #9baac0;
+  }
+
+  .history-empty {
+    font-size: 13px;
+  }
+
+  /* Music */
+  .music-section {
+    margin-top: 30px;
+  }
+
+  .music-toggle {
+    padding: 9px 18px;
+    color: #ffffff;
+    font-size: 13px;
+  }
+
+  .music-toggle span {
+    margin-right: 5px;
+    font-size: 16px;
+  }
+
+  /* Music glass panel */
+  .music-panel {
+    color: #f5f3ef;
+    margin-top: 17px;
+    padding: 22px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 18px;
+    text-align: left;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    background: rgba(20, 25, 35, 0);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+  }
+
+  .music-panel h2 {
+    color: #f5f3ef;
+    margin: 0;
+    font-size: 17px;
+    font-weight: 500;
+  }
+
+  .music-panel > p {
+    color: #9baac0;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .music-input-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .music-input-row input {
+    width: 100%;
+    min-width: 0;
+    border-radius: 8px;
+    text-align: left;
+    padding: 10px;
+  }
+
+  .music-input-row button {
+    padding: 9px 16px;
+    border-radius: 8px;
+  }
+
+  #music-status {
+    min-height: 16px;
+  }
+
+  #music-player-container {
+    margin-top: 15px;
+  }
+
+  .music-note {
+    margin-bottom: 0;
+  }
+
+  /* YouTube player */
+  .youtube-player-frame {
+    position: relative;
+    width: 250px;
+    height: 250px;
+    max-width: 100%;
+    margin: 12px auto 0;
+    overflow: hidden;
+    border-radius: 10px;
+    background: #000;
+  }
+
+  .youtube-player-frame iframe {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+
+  /* Desktop music positioning */
+  @media (min-width: 900px) {
+    .music-section {
+      position: fixed;
+      top: 35px;
+      right: clamp(32px, calc((100vw - 1100px) / 2), 150px);
+      margin-top: 0;
+      z-index: 10;
+    }
+
+    .music-panel {
+      width: 300px;
+      margin-left: auto;
+    }
+  }
+
+  /* Hide elements controlled by JavaScript */
+  [hidden] {
+    display: none !important;
+  }
+
+  /* Mobile adjustments */
+  @media (max-width: 430px) {
+    .timer-app {
+      margin: 35px auto;
+    }
+
+    .timer {
+      padding: 25px 16px;
+    }
+
+    .duration-settings {
+      gap: 12px;
+    }
+
+    .setting {
+      gap: 6px;
+    }
+
+    .controls {
+      gap: 7px;
+    }
+
+    button {
+      padding: 11px 20px;
+    }
+  }
+
+  /* Signature */
+  .signature {
+    position: fixed;
+    bottom: 10px;
+    left: 20px;
+    width: 45px;
+    height: auto;
+    opacity: 1;
+    z-index: 10;
+    pointer-events: none;
+  }
 </style>
