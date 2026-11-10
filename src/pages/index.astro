@@ -214,6 +214,9 @@
   let focusSessionTotalMs = 0;
   let musicPanelAutoClosed = false;
 
+  // The ticker runs in a Web Worker so it is not throttled in background tabs
+  const tickerWorker: Worker | null = createTickerWorker();
+
   let completedSessions = loadCompletedSessions();
 
   // Daily statistics
@@ -407,7 +410,41 @@
     renderHistory();
   }
 
+  // Browsers slow down normal timers in background tabs, but timers inside a
+  // Web Worker keep running on time. Falls back to setInterval if unavailable.
+  function createTickerWorker(): Worker | null {
+    try {
+      const source = `
+        let id = null;
+        self.onmessage = (event) => {
+          clearInterval(id);
+          id = event.data === "start"
+            ? setInterval(() => self.postMessage("tick"), 200)
+            : null;
+        };
+      `;
+      const url = URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
+      const worker = new Worker(url);
+      worker.onmessage = () => updateTimer();
+      return worker;
+    } catch {
+      return null;
+    }
+  }
+
+  function startInterval(): void {
+    stopInterval();
+
+    if (tickerWorker) {
+      tickerWorker.postMessage("start");
+    } else {
+      interval = setInterval(updateTimer, 200);
+    }
+  }
+
   function stopInterval(): void {
+    tickerWorker?.postMessage("stop");
+
     if (interval !== null) {
       clearInterval(interval);
       interval = null;
@@ -419,6 +456,60 @@
     void sound.play().catch(() => {
       // Browser audio restrictions may prevent playback.
     });
+  }
+
+  // Runs once from the Start click (a user gesture) so that sound and system
+  // notifications are allowed later, even while the tab is in the background.
+  let alertsPrepared = false;
+
+  function prepareAlerts(): void {
+    if (alertsPrepared) return;
+    alertsPrepared = true;
+
+    if ("Notification" in window && Notification.permission === "default") {
+      void Notification.requestPermission();
+    }
+
+    // Unlock audio playback with a silent play/pause
+    [focusCompleteSound, breakCompleteSound].forEach((sound) => {
+      sound.muted = true;
+      sound
+        .play()
+        .then(() => {
+          sound.pause();
+          sound.currentTime = 0;
+        })
+        .catch(() => {})
+        .finally(() => {
+          sound.muted = false;
+        });
+    });
+  }
+
+  // System notification, shown only when the user is not looking at the page
+  function notifyUser(title: string, body: string): void {
+    if (
+      document.hasFocus() ||
+      !("Notification" in window) ||
+      Notification.permission !== "granted"
+    ) {
+      return;
+    }
+
+    try {
+      const notification = new Notification(title, {
+        body,
+        tag: "spacey-focus",
+        silent: true // the app already plays its own sound
+      });
+
+      notification.onclick = () => {
+        window.focus();
+        notification.close();
+      };
+    } catch {
+      // Some browsers (e.g. Chrome on Android) only allow notifications via a service worker.
+    }
   }
 
   // YouTube music controls
@@ -611,6 +702,7 @@
     saveDailyStats();
 
     playNotification(focusCompleteSound);
+    notifyUser("Focus complete!", "Time for a break.");
 
     // Music stops as soon as the focus session ends
     pauseMusic();
@@ -656,6 +748,7 @@
     deadline = null;
 
     playNotification(breakCompleteSound);
+    notifyUser("Break finished", "Ready to focus?");
 
     phase = "focus";
 
@@ -713,6 +806,8 @@
   function startTimer(): void {
     if (deadline !== null) return;
 
+    prepareAlerts();
+
     if (remainingMs <= 0) {
       try {
         remainingMs = getCurrentDuration();
@@ -745,7 +840,7 @@
       pauseMusic();
     }
 
-    interval = setInterval(updateTimer, 200);
+    startInterval();
     updateTimer();
   }
 
@@ -803,7 +898,7 @@
         playMusic();
       }
 
-      interval = setInterval(updateTimer, 200);
+      startInterval();
       updateTimer();
     }
   }
