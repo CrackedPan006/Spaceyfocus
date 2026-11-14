@@ -1,0 +1,136 @@
+
+---
+---
+
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Log in | Spacey Focus</title>
+  </head>
+
+  <body>
+    <main class="login-container">
+      <h1>Welcome back</h1>
+      <p>Log in to access your Spacey Focus account.</p>
+
+      <form id="login-form">
+        <label for="email">Email address</label>
+        <input
+          id="email"
+          type="email"
+          placeholder="you@example.com"
+          required
+        />
+
+        <label for="password">Password</label>
+        <input
+          id="password"
+          type="password"
+          placeholder="Your password"
+          required
+        />
+
+        <button type="submit" id="login-button">Log in</button>
+        <p id="login-message" role="status"></p>
+      </form>
+
+      <p><a href="/forgot-password">Forgot your password?</a></p>
+      <p>Don't have an account? <a href="/signup">Create one</a></p>
+      <a href="/">Back to Spacey Focus</a>
+    </main>
+  </body>
+</html>
+
+<style>
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    background: #0b0b18;
+    color: white;
+    font-family: Arial, sans-serif;
+  }
+
+  .login-container {
+    width: min(90%, 380px);
+    box-sizing: border-box;
+    padding: 32px;
+    border: 1px solid #39394f;
+    border-radius: 12px;
+    background: #151525;
+  }
+
+  h1 {
+    margin-top: 0;
+  }
+
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 24px 0;
+  }
+
+  input {
+    padding: 12px;
+    border: 1px solid #55556b;
+    border-radius: 6px;
+    background: #222238;
+    color: white;
+  }
+
+  button {
+    padding: 12px;
+    border: 0;
+    border-radius: 6px;
+    background: #a78bfa;
+    color: #171326;
+    font-weight: bold;
+    cursor: pointer;
+  }
+
+  a {
+    color: #c4b5fd;
+  }
+
+  #login-message {
+    overflow-wrap: anywhere;
+  }
+</style>
+
+<script>
+  import { supabase } from '../lib/supabase';
+
+  const form = document.querySelector<HTMLFormElement>('#login-form');
+  const emailInput = document.querySelector<HTMLInputElement>('#email');
+  const passwordInput = document.querySelector<HTMLInputElement>('#password');
+  const button = document.querySelector<HTMLButtonElement>('#login-button');
+  const message = document.querySelector<HTMLParagraphElement>('#login-message');
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    if (!emailInput || !passwordInput || !button || !message) return;
+
+    button.disabled = true;
+    message.textContent = 'Logging in...';
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: emailInput.value.trim(),
+      password: passwordInput.value,
+    });
+
+    button.disabled = false;
+
+    if (error) {
+      message.textContent = error.message;
+      return;
+    }
+
+    message.textContent = 'Login successful! Redirecting...';
+
+    window.location.href = '/';
+  });
+</script>
