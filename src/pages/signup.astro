@@ -1,124 +1,66 @@
+---
+import AuthLayout from "../layouts/AuthLayout.astro";
+---
 
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <title>Create account | Spacey Focus</title>
-  </head>
+<AuthLayout title="Create account | Spacey Focus">
+  <h1>Create your account</h1>
+  <p>Save your focus sessions and access your statistics across devices.</p>
 
-  <body>
-    <main class="signup-container">
-      <h1>Create your account</h1>
-      <p>Save your focus sessions and access your statistics across devices.</p>
+  <form id="signup-form">
+    <label for="email">Email address</label>
+    <div class="auth-input-field">
+      <input
+        id="email"
+        type="email"
+        placeholder="you@example.com"
+        autocomplete="email"
+        required
+      />
+    </div>
 
-      <form id="signup-form">
-        <label for="email">Email address</label>
-        <input
-          id="email"
-          type="email"
-          placeholder="you@example.com"
-          required
-        />
+    <label for="password">Password</label>
+    <div class="auth-input-field">
+      <input
+        id="password"
+        type="password"
+        placeholder="At least 6 characters"
+        autocomplete="new-password"
+        minlength="6"
+        required
+      />
+    </div>
 
-        <label for="password">Password</label>
-        <input
-          id="password"
-          type="password"
-          placeholder="At least 6 characters"
-          minlength="6"
-          required
-        />
+    <button type="submit" id="signup-button">Create account</button>
+    <p id="signup-message" role="status"></p>
+  </form>
 
-        <button type="submit" id="signup-button">Create account</button>
-        <p id="signup-message" role="status"></p>
-      </form>
-
-      <p>Already have an account? <a href="/login">Log in</a></p>
-      <a href="/">Back to Spacey Focus</a>
-    </main>
-  </body>
-</html>
-
-<style>
-  body {
-    margin: 0;
-    min-height: 100vh;
-    display: grid;
-    place-items: center;
-    background: #0b0b18;
-    color: white;
-    font-family: Arial, sans-serif;
-  }
-
-  .signup-container {
-    width: min(90%, 380px);
-    box-sizing: border-box;
-    padding: 32px;
-    border: 1px solid #39394f;
-    border-radius: 12px;
-    background: #151525;
-  }
-
-  h1 {
-    margin-top: 0;
-  }
-
-  form {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    margin: 24px 0;
-  }
-
-  input {
-    padding: 12px;
-    border: 1px solid #55556b;
-    border-radius: 6px;
-    background: #222238;
-    color: white;
-  }
-
-  button {
-    padding: 12px;
-    border: 0;
-    border-radius: 6px;
-    background: #a78bfa;
-    color: #171326;
-    font-weight: bold;
-    cursor: pointer;
-  }
-
-  a {
-    color: #c4b5fd;
-  }
-
-  #signup-message {
-    overflow-wrap: anywhere;
-  }
-</style>
+  <div class="auth-links">
+    <p>Already have an account? <a href="/login">Log in</a></p>
+  </div>
+</AuthLayout>
 
 <script>
-  import { Supabase } from '../lib/supabase';
+  import { supabase } from "../lib/Supabase";
 
-  const form = document.querySelector<HTMLFormElement>('#signup-form');
-  const emailInput = document.querySelector<HTMLInputElement>('#email');
-  const passwordInput = document.querySelector<HTMLInputElement>('#password');
-  const button = document.querySelector<HTMLButtonElement>('#signup-button');
-  const message = document.querySelector<HTMLParagraphElement>('#signup-message');
+  const form = document.querySelector<HTMLFormElement>("#signup-form");
+  const emailInput = document.querySelector<HTMLInputElement>("#email");
+  const passwordInput = document.querySelector<HTMLInputElement>("#password");
+  const button = document.querySelector<HTMLButtonElement>("#signup-button");
+  const message = document.querySelector<HTMLParagraphElement>("#signup-message");
 
-  form?.addEventListener('submit', async (event) => {
+  form?.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     if (!emailInput || !passwordInput || !button || !message) return;
 
     button.disabled = true;
-    message.textContent = 'Creating your account...';
+    message.textContent = "Creating your account...";
 
     const { data, error } = await supabase.auth.signUp({
       email: emailInput.value.trim(),
       password: passwordInput.value,
       options: {
-        emailRedirectTo: 'https://spaceyfocus.space',
+        emailRedirectTo: "https://spaceyfocus.space",
       },
     });
 
@@ -131,9 +73,9 @@
 
     if (data.user && !data.session) {
       message.textContent =
-        'Account created! Please check your email and confirm your address before logging in.';
+        "Account created! Please check your email and confirm your address before logging in.";
     } else {
-      message.textContent = 'Your account has been created successfully!';
+      message.textContent = "Your account has been created successfully!";
     }
   });
 </script>

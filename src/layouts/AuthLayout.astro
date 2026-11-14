@@ -1,0 +1,380 @@
+---
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="theme-color" content="#211b1b" />
+    <link rel="icon" href="/fav2.ico" />
+    <title>{title}</title>
+  </head>
+
+  <body>
+    <div id="auth-background" aria-hidden="true"></div>
+    <header class="auth-header">
+      <a class="auth-brand" href="/">Spacey Focus</a>
+      <a class="auth-home-link" href="/">Back to Spacey Focus</a>
+    </header>
+    <main class="auth-card">
+      <slot />
+    </main>
+  </body>
+</html>
+
+<script is:inline>
+  const backgrounds = [
+    "/backgrounds/background1.jpg",
+    "/backgrounds/background2.jpg",
+    "/backgrounds/background3.jpg",
+    "/backgrounds/background4.jpg",
+    "/backgrounds/background5.jpg",
+    "/backgrounds/background6.jpg",
+    "/backgrounds/background7.jpg",
+    "/backgrounds/background8.jpg",
+  ];
+  const storageKey = "spaceyfocus-auth-background";
+  const validIndex = (value) =>
+    value !== null && /^\d+$/.test(value) && Number(value) < backgrounds.length;
+  const queryIndex = new URLSearchParams(window.location.search).get("background");
+  let savedIndex = null;
+  try {
+    savedIndex = localStorage.getItem(storageKey);
+  } catch (error) {
+    console.warn("[auth] Could not read the selected background from local storage.", error);
+  }
+  let backgroundIndex;
+
+  if (validIndex(queryIndex)) {
+    backgroundIndex = Number(queryIndex);
+  } else if (validIndex(savedIndex)) {
+    backgroundIndex = Number(savedIndex);
+  } else {
+    backgroundIndex = Math.floor(Math.random() * backgrounds.length);
+  }
+
+  try {
+    localStorage.setItem(storageKey, String(backgroundIndex));
+  } catch (error) {
+    console.warn("[auth] Could not preserve the selected background.", error);
+  }
+  const background = document.getElementById("auth-background");
+  if (background) {
+    background.style.backgroundImage = `url("${backgrounds[backgroundIndex]}")`;
+  }
+</script>
+
+<style is:global>
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    width: 100%;
+    min-height: 100%;
+    margin: 0;
+  }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 88px 20px 32px;
+    background: #211b1b;
+    color: #fff;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+
+  #auth-background {
+    position: fixed;
+    z-index: 0;
+    inset: -10px;
+    background-position: center;
+    background-size: cover;
+    filter: brightness(0.82);
+    transform: scale(1.03);
+  }
+
+  #auth-background::before {
+    position: absolute;
+    inset: -14px;
+    content: "";
+    background-image: inherit;
+    background-position: inherit;
+    background-size: inherit;
+    filter: blur(12px);
+    transform: scale(1.04);
+    pointer-events: none;
+    -webkit-mask-image:
+      radial-gradient(ellipse at center, transparent 0 40%, rgba(0, 0, 0, 0.35) 62%, #000 100%);
+    mask-image:
+      radial-gradient(ellipse at center, transparent 0 40%, rgba(0, 0, 0, 0.35) 62%, #000 100%);
+  }
+
+  #auth-background::after {
+    position: absolute;
+    inset: 0;
+    content: "";
+    background:
+      linear-gradient(180deg, rgba(91, 43, 35, 0.48), rgba(12, 14, 18, 0.58)),
+      rgba(26, 19, 19, 0.18);
+  }
+
+  .auth-header {
+    position: absolute;
+    z-index: 1;
+    top: 0;
+    right: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px clamp(20px, 4vw, 48px);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .auth-header a,
+  .auth-card a {
+    color: rgba(255, 255, 255, 0.92);
+    text-decoration: none;
+    transition: color 160ms ease;
+  }
+
+  .auth-header a:hover,
+  .auth-card a:hover {
+    color: #ff714b;
+  }
+
+  .auth-brand {
+    font-weight: 700;
+    letter-spacing: 0.12em;
+  }
+
+  .auth-card {
+    position: relative;
+    z-index: 1;
+    width: min(100%, 440px);
+    padding: clamp(28px, 6vw, 44px);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 22px;
+    background: rgba(35, 28, 29, 0.42);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .auth-card h1 {
+    margin: 0 0 12px;
+    font-size: clamp(26px, 6vw, 32px);
+    font-weight: 500;
+    text-align: center;
+  }
+
+  .auth-card > p {
+    margin: 0 0 24px;
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 14px;
+    line-height: 1.6;
+    text-align: center;
+  }
+
+  .auth-card form {
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+    margin: 24px 0 20px;
+  }
+
+  .auth-card label {
+    margin: 4px 0 -4px 8px;
+    color: rgba(255, 255, 255, 0.88);
+    font-size: 12px;
+    letter-spacing: 0.02em;
+  }
+
+  .auth-card #login-form label,
+  .auth-card #signup-form label,
+  .auth-card #reset-form label {
+    font-size: 12.6px;
+  }
+
+  .auth-card input {
+    width: 100%;
+    padding: 14px 18px;
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    border-radius: 999px;
+    outline: none;
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    font: inherit;
+    transition: border-color 160ms ease, background 160ms ease;
+  }
+
+  .auth-card input::placeholder {
+    color: rgba(255, 255, 255, 0.64);
+  }
+
+  .auth-card input:focus {
+    border-color: rgba(255, 255, 255, 0.75);
+    background: rgba(255, 255, 255, 0.26);
+  }
+
+  .auth-card .auth-input-field {
+    position: relative;
+    width: 100%;
+  }
+
+  .auth-card .auth-input-field::before,
+  .auth-card .auth-input-field::after {
+    position: absolute;
+    z-index: 1;
+    right: 0;
+    left: 0;
+    height: 1px;
+    content: "";
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.95),
+      transparent
+    );
+    pointer-events: none;
+  }
+
+  .auth-card .auth-input-field::before {
+    top: 0;
+  }
+
+  .auth-card .auth-input-field::after {
+    bottom: 0;
+  }
+
+  .auth-card .auth-input-field:focus-within::before,
+  .auth-card .auth-input-field:focus-within::after {
+    background: linear-gradient(90deg, transparent, #fff, transparent);
+  }
+
+  .auth-card #login-form input,
+  .auth-card #signup-form input,
+  .auth-card #reset-form input {
+    border: 0;
+    border-radius: 0;
+    background-color: transparent;
+    background-image: none;
+  }
+
+  .auth-card #login-form input:focus,
+  .auth-card #signup-form input:focus,
+  .auth-card #reset-form input:focus {
+    background-color: transparent;
+  }
+
+  .auth-card #login-form input:autofill,
+  .auth-card #signup-form input:autofill,
+  .auth-card #reset-form input:autofill,
+  .auth-card #login-form input:-webkit-autofill,
+  .auth-card #signup-form input:-webkit-autofill,
+  .auth-card #reset-form input:-webkit-autofill {
+    background-color: transparent !important;
+    -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
+    box-shadow: 0 0 0 1000px transparent inset !important;
+    -webkit-text-fill-color: #fff;
+    caret-color: #fff;
+    -webkit-transition: background-color 100000s ease-in-out 0s;
+    transition: background-color 100000s ease-in-out 0s;
+  }
+
+  .auth-card button {
+    min-height: 48px;
+    margin-top: 10px;
+    padding: 12px 20px;
+    border: 1px solid rgba(0, 0, 0, 0.35);
+    border-radius: 999px;
+    background: #ff633d;
+    color: #fff;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 160ms ease, transform 160ms ease;
+  }
+
+  .auth-card button:hover:not(:disabled) {
+    background: #ff7957;
+    transform: translateY(-1px);
+  }
+
+  .auth-card #login-button,
+  .auth-card #signup-button,
+  .auth-card #reset-button {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    transition: color 160ms ease;
+  }
+
+  .auth-card #login-button:hover:not(:disabled),
+  .auth-card #signup-button:hover:not(:disabled),
+  .auth-card #reset-button:hover:not(:disabled) {
+    background: transparent;
+    transform: none;
+  }
+
+  .auth-card #login-button:focus-visible,
+  .auth-card #signup-button:focus-visible,
+  .auth-card #reset-button:focus-visible {
+    outline: 1px solid rgba(255, 255, 255, 0.8);
+    outline-offset: 3px;
+  }
+
+  .auth-card button:disabled {
+    cursor: wait;
+    opacity: 0.72;
+  }
+
+  .auth-card #login-message,
+  .auth-card #signup-message,
+  .auth-card #message {
+    margin: 3px 4px 0;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 13px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+    text-align: center;
+  }
+
+  .auth-card .auth-links {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 18px;
+    font-size: 13px;
+    line-height: 1.5;
+    text-align: center;
+  }
+
+  .auth-card .auth-links p {
+    margin: 0;
+  }
+
+  @media (max-width: 480px) {
+    body {
+      padding-right: 14px;
+      padding-left: 14px;
+    }
+
+    .auth-home-link {
+      max-width: 130px;
+      text-align: right;
+    }
+  }
+</style>

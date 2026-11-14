@@ -475,6 +475,34 @@
           padding: 11px 20px;
         }
       }
+            /* Account links */
+      .account {
+        position: fixed;
+        bottom: 14px;
+        right: 20px;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        font-size: 13px;
+      }
+
+      .account a,
+      .account span {
+        color: #f5f3ef;
+        opacity: 0.75;
+        text-decoration: none;
+      }
+
+      .account a:hover {
+        opacity: 1;
+      }
+
+      .account button {
+        padding: 6px 14px;
+        font-size: 13px;
+        border-radius: 16px;
+      }
 
       /* Signature */
       .signature {
@@ -609,8 +637,17 @@
     </main>
 
     <img src="/signature.svg" alt="" class="signature" />
+    <div class="account">
+    <a href="/calendar">Calendar</a>
+    <span id="account-email" hidden></span>
+    <a id="login-link" href="/login">Log in</a>
+    <a id="signup-link" href="/signup">Sign up</a>
+    <button id="logout-button" hidden>Log out</button>
+    </div>
 
     <script>
+      import { pushSession, syncLocalHistory } from "../lib/sessions";
+      import { supabase } from "../lib/Supabase";
       const durationInput =
         document.querySelector<HTMLInputElement>("#duration")!;
 
@@ -1197,12 +1234,14 @@
         // (which may be empty/invalid right now and would throw here).
         const completedMinutes = Math.max(1, Math.round(focusSessionTotalMs / 60000));
 
-        sessionHistory.push({
-          date: getTodayKey(),
-          completedAt: new Date().toISOString(),
-          minutes: completedMinutes
-        });
+        const record = {
+        date: getTodayKey(),
+        completedAt: new Date().toISOString(),
+        minutes: completedMinutes
+        };
+        sessionHistory.push(record);
         saveSessionHistory();
+        void pushSession(record);
         saveCompletedSessions();
 
         playNotification(focusCompleteSound);
@@ -1433,6 +1472,7 @@
       // Initial display
       render();
       renderHistory();
+      void syncLocalHistory();
 
       // ---------------------------------------------------------------
       // Automatic background rotation
@@ -1493,6 +1533,44 @@
 
       // Change background every 10 minutes
       setInterval(changeBackground, 10 * 60 * 1000);
+      // Account links: show login/signup for guests, email + logout for logged-in users
+      const accountEmail = document.querySelector<HTMLSpanElement>("#account-email")!;
+      const loginLink = document.querySelector<HTMLAnchorElement>("#login-link")!;
+      const signupLink = document.querySelector<HTMLAnchorElement>("#signup-link")!;
+      const logoutButton = document.querySelector<HTMLButtonElement>("#logout-button")!;
+
+      function startNewAuthFlow(): void {
+        try {
+          localStorage.removeItem("spaceyfocus-auth-background");
+        } catch (error) {
+          console.warn("[auth] Could not reset the selected background.", error);
+        }
+      }
+
+      loginLink.addEventListener("click", startNewAuthFlow);
+      signupLink.addEventListener("click", startNewAuthFlow);
+
+      function showAccount(email: string | null): void {
+        const loggedIn = email !== null;
+
+        accountEmail.textContent = email ?? "";
+        accountEmail.hidden = !loggedIn;
+        logoutButton.hidden = !loggedIn;
+        loginLink.hidden = loggedIn;
+        signupLink.hidden = loggedIn;
+      }
+
+      void supabase.auth
+        .getSession()
+        .then(({ data }) => showAccount(data.session?.user.email ?? null));
+
+      supabase.auth.onAuthStateChange((_event, session) => {
+        showAccount(session?.user.email ?? null);
+      });
+
+      logoutButton.addEventListener("click", () => {
+        void supabase.auth.signOut();
+      });
     </script>
   </body>
 </html>

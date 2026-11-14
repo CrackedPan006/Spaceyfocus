@@ -1,0 +1,1003 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Spacey Focus — your focus sessions by day, week and month." />
+    <meta name="theme-color" content="#100f0d" />
+    <link rel="icon" href="/fav2.ico" />
+    <title>Calendar — Spacey Focus</title>
+
+    <!-- is:global because most of the calendar is built from JS -->
+    <style is:global>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Arial, Helvetica, sans-serif;
+        color: #f5f3ef;
+        background:
+          linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45)),
+          url("/backgrounds/background1.jpg") center center / cover no-repeat fixed;
+        background-color: #100f0d;
+      }
+
+      button {
+        font: inherit;
+        color: inherit;
+        cursor: pointer;
+      }
+
+      :focus-visible {
+        outline: 2px solid #9baac0;
+        outline-offset: 2px;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      .cal-app {
+        width: min(100% - 32px, 1040px);
+        margin: 32px auto 60px;
+      }
+
+      /* Top row: back link + view switch */
+      .cal-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+
+      .back {
+        color: #f5f3ef;
+        opacity: 0.75;
+        text-decoration: none;
+        font-size: 14px;
+      }
+
+      .back:hover {
+        opacity: 1;
+      }
+
+      .seg {
+        display: flex;
+        border: 1px solid rgba(210, 205, 195, 0.4);
+        border-radius: 20px;
+        overflow: hidden;
+      }
+
+      .seg button {
+        padding: 8px 18px;
+        border: none;
+        background: transparent;
+        font-size: 14px;
+        opacity: 0.7;
+      }
+
+      .seg button[aria-pressed="true"] {
+        background: rgba(255, 255, 255, 0.18);
+        opacity: 1;
+      }
+
+      /* Main panel */
+      .cal {
+        padding: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 18px;
+        background: rgba(20, 25, 35, 0.35);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+      }
+
+      .cal-nav {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin-bottom: 16px;
+      }
+
+      .nav-buttons {
+        display: flex;
+        gap: 8px;
+      }
+
+      .nav-buttons button {
+        padding: 7px 14px;
+        border: 1px solid rgba(210, 205, 195, 0.4);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.045);
+        font-size: 15px;
+        transition: background 0.2s;
+      }
+
+      .nav-buttons button:hover {
+        background: rgba(169, 174, 184, 0.23);
+      }
+
+      #title {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 500;
+      }
+
+      /* Stats */
+      .cal-stats {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: 1fr;
+        gap: 10px;
+        margin-bottom: 14px;
+      }
+
+      .stat {
+        padding: 10px 14px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .stat-value {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .stat-label {
+        margin: 2px 0 0;
+        font-size: 12px;
+        color: #9baac0;
+      }
+
+      .hint {
+        margin: 0 0 12px;
+        font-size: 13px;
+        color: #9baac0;
+      }
+
+      .hint a {
+        color: #f5f3ef;
+      }
+      .hint a.login-btn {
+        display: inline-block;
+        margin-left: 8px;
+        padding: 5px 14px;
+        border: 1px solid rgba(210, 205, 195, 0.4);
+        border-radius: 24px;
+        background: rgba(255, 255, 255, 0.045);
+        color: #ffffff;
+        font-size: 13px;
+        text-decoration: none;
+        transition: background 0.2s, border-color 0.2s;
+        }
+
+        .hint a.login-btn:hover {
+        background: rgba(169, 174, 184, 0.23);
+        border-color: rgba(99, 99, 94, 0.3);
+        }
+
+      /* Month view */
+      .month-head,
+      .month-grid {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 6px;
+      }
+
+      .month-head span {
+        padding-bottom: 6px;
+        text-align: center;
+        font-size: 12px;
+        color: #9baac0;
+      }
+
+      .month-cell {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-height: 78px;
+        padding: 8px;
+        text-align: left;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.04);
+        transition: border-color 0.2s;
+      }
+
+      .month-cell:hover {
+        border-color: rgba(255, 255, 255, 0.4);
+      }
+
+      .month-cell.outside {
+        opacity: 0.4;
+      }
+
+      .month-cell .num {
+        align-self: flex-start;
+        font-size: 13px;
+      }
+
+      .month-cell.today .num {
+        padding: 0 7px;
+        border-radius: 10px;
+        background: #f5f3ef;
+        color: #1a1a1a;
+      }
+
+      .month-cell .sum {
+        margin-top: auto;
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .month-cell .cnt {
+        font-size: 11px;
+        color: #c3ccd9;
+      }
+
+      /* Week and day view (time grid) */
+      .tg-scroll {
+        max-height: 62vh;
+        overflow: auto;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+      }
+
+      .tg {
+        display: grid;
+        grid-template-columns: 48px repeat(var(--cols), minmax(0, 1fr));
+        min-width: calc(48px + var(--cols) * 80px);
+      }
+
+      .tg-corner,
+      .tg-head {
+        position: sticky;
+        top: 0;
+        z-index: 3;
+        padding: 8px 4px;
+        text-align: center;
+        font-size: 13px;
+        color: #c3ccd9;
+        background: rgba(24, 28, 38, 0.96);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      }
+
+      button.tg-head {
+        border-top: none;
+        border-right: none;
+        border-left: none;
+        border-radius: 0;
+      }
+
+      button.tg-head:hover {
+        color: #f5f3ef;
+      }
+
+      .tg-head .dnum {
+        display: block;
+        font-size: 18px;
+        color: #f5f3ef;
+      }
+
+      .tg-head.today {
+        color: #f5f3ef;
+        background:
+        linear-gradient(to right, transparent, #f5f3ef) top / 100% 1px no-repeat,
+        linear-gradient(to right, transparent, #f5f3ef) bottom / 100% 1px no-repeat,
+        rgba(24, 28, 38, 0.96);
+        }
+
+      .tg-gutter {
+        position: relative;
+        height: calc(var(--hh) * 24);
+      }
+
+      .tg-hour {
+        position: absolute;
+        right: 6px;
+        font-size: 11px;
+        color: #9baac0;
+        transform: translateY(-50%);
+      }
+
+      .tg-col {
+        position: relative;
+        height: calc(var(--hh) * 24);
+        border-left: 1px solid rgba(255, 255, 255, 0.08);
+        background-image: repeating-linear-gradient(
+          to bottom,
+          transparent 0,
+          transparent calc(var(--hh) - 1px),
+          rgba(255, 255, 255, 0.08) calc(var(--hh) - 1px),
+          rgba(255, 255, 255, 0.08) var(--hh)
+        );
+      }
+
+      .tg-block {
+        position: absolute;
+        left: 3px;
+        right: 3px;
+        padding: 3px 6px;
+        overflow: hidden;
+        font-size: 11px;
+        line-height: 1.3;
+        border-left: 3px solid #f5f3ef;
+        border-radius: 6px;
+        background: rgba(245, 243, 239, 0.2);
+      }
+
+      .tg-now {
+        position: absolute;
+        left: 0;
+        right: 0;
+        z-index: 1;
+        height: 0;
+        border-top: 2px solid #ff8a7a;
+        pointer-events: none;
+      }
+
+      @media (max-width: 600px) {
+        .cal {
+          padding: 14px;
+        }
+
+        .cal-stats {
+          gap: 6px;
+        }
+
+        .stat {
+          padding: 8px 10px;
+        }
+
+        .stat-value {
+          font-size: 18px;
+        }
+
+        .month-grid,
+        .month-head {
+          gap: 3px;
+        }
+
+        .month-cell {
+          min-height: 58px;
+          padding: 5px;
+        }
+
+        .month-cell .cnt {
+          display: none;
+        }
+
+        .month-cell .sum {
+          font-size: 12px;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <main class="cal-app">
+      <header class="cal-top">
+        <a class="back" href="/">← Timer</a>
+
+        <div class="seg" role="group" aria-label="Calendar view">
+          <button type="button" data-view="day" aria-pressed="false">Day</button>
+          <button type="button" data-view="week" aria-pressed="false">Week</button>
+          <button type="button" data-view="month" aria-pressed="true">Month</button>
+        </div>
+      </header>
+
+      <section class="cal" aria-label="Focus session calendar">
+        <div class="cal-nav">
+          <div class="nav-buttons">
+            <button type="button" id="prev" aria-label="Previous">‹</button>
+            <button type="button" id="next" aria-label="Next">›</button>
+            <button type="button" id="today">Today</button>
+          </div>
+          <h1 id="title"></h1>
+        </div>
+
+        <div id="stats" class="cal-stats"></div>
+
+        <p id="guest-note" class="hint" hidden>
+          Showing sessions saved in this browser only.
+          <a class="login-btn" href="/login">Log in</a> to see your synced history.
+        </p>
+        <p id="hint" class="hint" role="status" hidden></p>
+
+        <div id="body"></div>
+      </section>
+    </main>
+
+    <script>
+      import { supabase } from "../lib/Supabase";
+
+      type View = "day" | "week" | "month";
+      type Session = { start: Date; end: Date; minutes: number };
+
+      const HOUR_PX = 48;
+      const LOCAL_KEY = "spaceyfocus-session-history";
+
+      const titleEl = document.querySelector<HTMLHeadingElement>("#title")!;
+      const statsEl = document.querySelector<HTMLDivElement>("#stats")!;
+      const hintEl = document.querySelector<HTMLParagraphElement>("#hint")!;
+      const guestNoteEl = document.querySelector<HTMLParagraphElement>("#guest-note")!;
+      const bodyEl = document.querySelector<HTMLDivElement>("#body")!;
+      const viewButtons = document.querySelectorAll<HTMLButtonElement>(".seg button");
+
+      let view: View = "month";
+      let anchor: Date = startOfDay(new Date());
+      let sessions: Session[] = [];
+      let loading = true;
+      let loadError = false;
+      let userId: string | null = null;
+      let loadCounter = 0;
+
+      // ---------------------------------------------------------------
+      // Date helpers (weeks start on Monday)
+      // ---------------------------------------------------------------
+
+      function pad(n: number): string {
+        return String(n).padStart(2, "0");
+      }
+
+      function dateKey(d: Date): string {
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      }
+
+      function parseDateKey(value: string | null): Date | null {
+        if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+
+        const [y, m, d] = value.split("-").map(Number);
+        const date = new Date(y, m - 1, d);
+
+        return dateKey(date) === value ? date : null;
+      }
+
+      function startOfDay(d: Date): Date {
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      }
+
+      function addDays(d: Date, n: number): Date {
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+      }
+
+      function startOfWeek(d: Date): Date {
+        return addDays(d, -((d.getDay() + 6) % 7));
+      }
+
+      // Moves by whole months, keeping the day of the month where possible
+      function addMonths(d: Date, n: number): Date {
+        const target = new Date(d.getFullYear(), d.getMonth() + n, 1);
+        const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+
+        return new Date(target.getFullYear(), target.getMonth(), Math.min(d.getDate(), lastDay));
+      }
+
+      function formatTime(d: Date): string {
+        return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      }
+
+      function formatDuration(minutes: number): string {
+        if (minutes < 60) return `${minutes} min`;
+
+        const h = Math.floor(minutes / 60);
+        const m = minutes % 60;
+
+        return m ? `${h}h ${m}m` : `${h}h`;
+      }
+
+      function weekdayShort(d: Date): string {
+        return d.toLocaleDateString(undefined, { weekday: "short" });
+      }
+
+      function el<K extends keyof HTMLElementTagNameMap>(
+        tag: K,
+        className?: string,
+        text?: string
+      ): HTMLElementTagNameMap[K] {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined) node.textContent = text;
+        return node;
+      }
+
+      // ---------------------------------------------------------------
+      // Which dates are visible
+      // ---------------------------------------------------------------
+
+      // Range of dates drawn on screen (end is exclusive)
+      function visibleRange(): { start: Date; end: Date } {
+        if (view === "day") {
+          return { start: anchor, end: addDays(anchor, 1) };
+        }
+
+        if (view === "week") {
+          const start = startOfWeek(anchor);
+          return { start, end: addDays(start, 7) };
+        }
+
+        const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+        const last = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0);
+
+        return { start: startOfWeek(first), end: addDays(startOfWeek(last), 7) };
+      }
+
+      // Range the stats cover (the month itself, not the grey days around it)
+      function statRange(): { start: Date; end: Date } {
+        if (view === "month") {
+          return {
+            start: new Date(anchor.getFullYear(), anchor.getMonth(), 1),
+            end: new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1)
+          };
+        }
+
+        return visibleRange();
+      }
+
+      // ---------------------------------------------------------------
+      // Loading data
+      // ---------------------------------------------------------------
+
+      // Sessions saved in this browser (used when nobody is logged in)
+      function loadLocal(): Session[] {
+        try {
+          const raw = JSON.parse(localStorage.getItem(LOCAL_KEY) ?? "[]");
+          if (!Array.isArray(raw)) return [];
+
+          return raw
+            .filter(
+              (r) =>
+                r &&
+                typeof r.completedAt === "string" &&
+                Number.isFinite(r.minutes) &&
+                r.minutes > 0
+            )
+            .map((r) => {
+              const end = new Date(r.completedAt);
+              return {
+                start: new Date(end.getTime() - r.minutes * 60000),
+                end,
+                minutes: r.minutes
+              };
+            })
+            .filter((s) => !Number.isNaN(s.end.getTime()));
+        } catch {
+          return [];
+        }
+      }
+
+      async function loadSessions(): Promise<void> {
+        const myLoad = ++loadCounter;
+
+        loading = true;
+        loadError = false;
+        sessions = [];
+        render();
+
+        const { start, end } = visibleRange();
+        let result: Session[] = [];
+
+        try {
+          if (userId) {
+            const { data, error } = await supabase
+              .from("focus_sessions")
+              .select("started_at, completed_at, duration_seconds")
+              .gte("completed_at", start.toISOString())
+              .lt("completed_at", end.toISOString())
+              .order("completed_at")
+              .limit(5000);
+
+            if (error) throw error;
+
+            result = (data ?? []).map((row: any) => ({
+              start: new Date(row.started_at),
+              end: new Date(row.completed_at),
+              minutes: Math.max(1, Math.round(row.duration_seconds / 60))
+            }));
+          } else {
+            result = loadLocal().filter((s) => s.end >= start && s.end < end);
+          }
+        } catch (error) {
+          console.error("[calendar] Could not load sessions:", error);
+
+          // Ignore the result if the person has already moved on to another period
+          if (myLoad !== loadCounter) return;
+
+          loading = false;
+          loadError = true;
+          render();
+          return;
+        }
+
+        if (myLoad !== loadCounter) return;
+
+        sessions = result;
+        loading = false;
+        render();
+      }
+
+      // ---------------------------------------------------------------
+      // Grouping and stats
+      // ---------------------------------------------------------------
+
+      type DayInfo = { count: number; minutes: number };
+
+      // Sessions count on the day they were completed (same as the timer's history)
+      function groupByDay(list: Session[]): Map<string, DayInfo> {
+        const map = new Map<string, DayInfo>();
+
+        for (const s of list) {
+          const key = dateKey(s.end);
+          const info = map.get(key) ?? { count: 0, minutes: 0 };
+          info.count += 1;
+          info.minutes += s.minutes;
+          map.set(key, info);
+        }
+
+        return map;
+      }
+
+      function renderStats(): void {
+        const { start, end } = statRange();
+        const inRange = sessions.filter((s) => s.end >= start && s.end < end);
+        const total = inRange.reduce((sum, s) => sum + s.minutes, 0);
+
+        const cards: { value: string; label: string }[] = [
+          {
+            value: loading ? "–" : String(inRange.length),
+            label: inRange.length === 1 ? "session" : "sessions"
+          },
+          {
+            value: loading ? "–" : total > 0 ? formatDuration(total) : "0 min",
+            label: "focus time"
+          }
+        ];
+
+        if (view !== "day") {
+          let busiestText = "–";
+          let busiestMinutes = 0;
+
+          if (!loading) {
+            for (const [key, info] of groupByDay(inRange)) {
+              if (info.minutes > busiestMinutes) {
+                busiestMinutes = info.minutes;
+                const date = parseDateKey(key)!;
+                busiestText = `${weekdayShort(date)} ${date.getDate()}`;
+              }
+            }
+          }
+
+          cards.push({ value: busiestText, label: "busiest day" });
+        }
+
+        statsEl.replaceChildren(
+          ...cards.map((card) => {
+            const box = el("div", "stat");
+            box.append(el("p", "stat-value", card.value), el("p", "stat-label", card.label));
+            return box;
+          })
+        );
+      }
+
+      // ---------------------------------------------------------------
+      // Rendering
+      // ---------------------------------------------------------------
+
+      function getTitle(): string {
+        if (view === "month") {
+          return anchor.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+        }
+
+        if (view === "day") {
+          return anchor.toLocaleDateString(undefined, {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+            year: "numeric"
+          });
+        }
+
+        const first = startOfWeek(anchor);
+        const last = addDays(first, 6);
+        const from = first.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+        const to = last.toLocaleDateString(undefined, {
+          day: "numeric",
+          month: "short",
+          year: "numeric"
+        });
+
+        return `${from} – ${to}`;
+      }
+
+      function renderMonth(): void {
+        const { start, end } = visibleRange();
+        const byDay = groupByDay(sessions);
+        const todayKey = dateKey(new Date());
+
+        const head = el("div", "month-head");
+        for (let i = 0; i < 7; i++) {
+          head.append(el("span", "", weekdayShort(addDays(start, i))));
+        }
+
+        const grid = el("div", "month-grid");
+
+        for (let day = start; day < end; day = addDays(day, 1)) {
+          const cellDay = day;
+          const key = dateKey(cellDay);
+          const info = byDay.get(key);
+
+          const cell = el("button", "month-cell");
+          cell.type = "button";
+
+          if (cellDay.getMonth() !== anchor.getMonth()) cell.classList.add("outside");
+          if (key === todayKey) cell.classList.add("today");
+
+          cell.append(el("span", "num", String(cellDay.getDate())));
+
+          const fullDate = cellDay.toLocaleDateString(undefined, {
+            weekday: "long",
+            day: "numeric",
+            month: "long"
+          });
+
+          if (info) {
+            cell.append(
+              el("span", "sum", formatDuration(info.minutes)),
+              el("span", "cnt", `${info.count} ${info.count === 1 ? "session" : "sessions"}`)
+            );
+
+            // Darker shade = more focus time that day (full shade at 4 hours)
+            const alpha = 0.08 + 0.3 * Math.min(1, info.minutes / 240);
+            cell.style.background = `rgba(245, 243, 239, ${alpha.toFixed(2)})`;
+
+            cell.setAttribute(
+              "aria-label",
+              `${fullDate}: ${info.count} ${info.count === 1 ? "session" : "sessions"}, ${formatDuration(info.minutes)}`
+            );
+          } else {
+            cell.setAttribute("aria-label", `${fullDate}: no sessions`);
+          }
+
+          cell.addEventListener("click", () => setState("day", cellDay));
+          grid.append(cell);
+        }
+
+        bodyEl.replaceChildren(head, grid);
+      }
+
+      function renderTimeGrid(): void {
+        const { start } = visibleRange();
+        const dayCount = view === "week" ? 7 : 1;
+        const days = Array.from({ length: dayCount }, (_, i) => addDays(start, i));
+        const now = new Date();
+        const todayKey = dateKey(now);
+
+        const wrap = el("div", "tg-scroll");
+        const grid = el("div", "tg");
+        grid.style.setProperty("--cols", String(dayCount));
+        grid.style.setProperty("--hh", `${HOUR_PX}px`);
+
+        // Header row
+        grid.append(el("div", "tg-corner"));
+
+        for (const day of days) {
+          const isToday = dateKey(day) === todayKey;
+          const clickable = view === "week";
+          const head = clickable ? el("button", "tg-head") : el("div", "tg-head");
+
+          if (head instanceof HTMLButtonElement) {
+            head.type = "button";
+            head.addEventListener("click", () => setState("day", day));
+          }
+
+          if (isToday) head.classList.add("today");
+
+          head.append(weekdayShort(day), el("span", "dnum", String(day.getDate())));
+          grid.append(head);
+        }
+
+        // Time labels
+        const gutter = el("div", "tg-gutter");
+        for (let h = 1; h < 24; h++) {
+          const label = el("span", "tg-hour", `${pad(h)}:00`);
+          label.style.top = `${h * HOUR_PX}px`;
+          gutter.append(label);
+        }
+        grid.append(gutter);
+
+        // One column per day, with a block for each session
+        let earliestStartMinute: number | null = null;
+
+        for (const day of days) {
+          const key = dateKey(day);
+          const col = el("div", "tg-col");
+
+          for (const s of sessions.filter((item) => dateKey(item.end) === key)) {
+            const sameDayStart = dateKey(s.start) === key;
+            const startMin = sameDayStart ? s.start.getHours() * 60 + s.start.getMinutes() : 0;
+            let endMin = s.end.getHours() * 60 + s.end.getMinutes();
+            if (endMin <= startMin) endMin = Math.min(1440, startMin + s.minutes);
+
+            if (earliestStartMinute === null || startMin < earliestStartMinute) {
+              earliestStartMinute = startMin;
+            }
+
+            const height = Math.max(20, ((endMin - startMin) / 60) * HOUR_PX - 2);
+            const block = el("div", "tg-block");
+            block.style.top = `${(startMin / 60) * HOUR_PX}px`;
+            block.style.height = `${height}px`;
+
+            const range = `${formatTime(s.start)}–${formatTime(s.end)}`;
+            block.title = `${range} · ${formatDuration(s.minutes)}`;
+            block.append(el("div", "", range));
+            if (height >= 40) block.append(el("div", "", formatDuration(s.minutes)));
+
+            col.append(block);
+          }
+
+          if (key === todayKey) {
+            const line = el("div", "tg-now");
+            line.style.top = `${((now.getHours() * 60 + now.getMinutes()) / 60) * HOUR_PX}px`;
+            col.append(line);
+          }
+
+          grid.append(col);
+        }
+
+        wrap.append(grid);
+        bodyEl.replaceChildren(wrap);
+
+        // Scroll to the first session, or to the current time, or to 08:00
+        let targetHour = 8;
+        if (earliestStartMinute !== null) {
+          targetHour = Math.max(0, Math.floor(earliestStartMinute / 60) - 1);
+        } else if (days.some((d) => dateKey(d) === todayKey)) {
+          targetHour = Math.max(0, now.getHours() - 2);
+        }
+        wrap.scrollTop = targetHour * HOUR_PX;
+      }
+
+      function render(): void {
+        titleEl.textContent = getTitle();
+
+        viewButtons.forEach((button) => {
+          button.setAttribute("aria-pressed", String(button.dataset.view === view));
+        });
+
+        guestNoteEl.hidden = userId !== null;
+
+        let hint = "";
+        if (loadError) {
+          hint = "Couldn't load your sessions. Check your connection and reload the page.";
+        } else if (!loading && sessions.length === 0) {
+          hint = "No focus sessions here yet. Finish a Pomodoro on the timer and it will show up.";
+        }
+        hintEl.textContent = hint;
+        hintEl.hidden = hint === "";
+
+        renderStats();
+
+        if (view === "month") {
+          renderMonth();
+        } else {
+          renderTimeGrid();
+        }
+      }
+
+      // ---------------------------------------------------------------
+      // Navigation (the view and date live in the URL, so reload and the back button work)
+      // ---------------------------------------------------------------
+
+      function readUrl(): void {
+        const params = new URLSearchParams(location.search);
+        const wanted = params.get("view");
+
+        view = wanted === "day" || wanted === "week" || wanted === "month" ? wanted : "month";
+        anchor = parseDateKey(params.get("date")) ?? startOfDay(new Date());
+      }
+
+      function writeUrl(push: boolean): void {
+        const url = `${location.pathname}?view=${view}&date=${dateKey(anchor)}`;
+
+        if (push) {
+          history.pushState(null, "", url);
+        } else {
+          history.replaceState(null, "", url);
+        }
+      }
+
+      function setState(nextView: View, nextAnchor: Date): void {
+        view = nextView;
+        anchor = nextAnchor;
+        writeUrl(true);
+        void loadSessions();
+      }
+
+      function shift(direction: 1 | -1): void {
+        let next: Date;
+
+        if (view === "month") {
+          next = addMonths(anchor, direction);
+        } else {
+          next = addDays(anchor, direction * (view === "week" ? 7 : 1));
+        }
+
+        setState(view, next);
+      }
+
+      document.querySelector("#prev")!.addEventListener("click", () => shift(-1));
+      document.querySelector("#next")!.addEventListener("click", () => shift(1));
+      document
+        .querySelector("#today")!
+        .addEventListener("click", () => setState(view, startOfDay(new Date())));
+
+      viewButtons.forEach((button) => {
+        button.addEventListener("click", () => setState(button.dataset.view as View, anchor));
+      });
+
+      // Keyboard: ← → move, T = today, D / W / M = day / week / month
+      document.addEventListener("keydown", (event) => {
+        if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+        const target = event.target as HTMLElement;
+        if (target.matches("input, textarea, select")) return;
+
+        switch (event.key) {
+          case "ArrowLeft":
+            shift(-1);
+            break;
+          case "ArrowRight":
+            shift(1);
+            break;
+          case "t":
+          case "T":
+            setState(view, startOfDay(new Date()));
+            break;
+          case "d":
+          case "D":
+            setState("day", anchor);
+            break;
+          case "w":
+          case "W":
+            setState("week", anchor);
+            break;
+          case "m":
+          case "M":
+            setState("month", anchor);
+            break;
+        }
+      });
+
+      window.addEventListener("popstate", () => {
+        readUrl();
+        void loadSessions();
+      });
+
+      // ---------------------------------------------------------------
+      // Start
+      // ---------------------------------------------------------------
+
+      async function init(): Promise<void> {
+        try {
+          const { data } = await supabase.auth.getSession();
+          userId = data.session?.user.id ?? null;
+        } catch (error) {
+          console.error("[calendar] Could not check login:", error);
+        }
+
+        readUrl();
+        writeUrl(false);
+        await loadSessions();
+      }
+
+      void init();
+    </script>
+  </body>
+</html>
