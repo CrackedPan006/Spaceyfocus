@@ -30,7 +30,7 @@ import AuthLayout from "../layouts/AuthLayout.astro";
     </div>
 
     <button type="submit" id="login-button">Log in</button>
-    <p id="login-message" role="status"></p>
+    <p id="login-message" class="auth-message" role="status" aria-live="polite" aria-atomic="true"></p>
   </form>
 
   <div class="auth-links">
@@ -54,22 +54,34 @@ import AuthLayout from "../layouts/AuthLayout.astro";
     if (!emailInput || !passwordInput || !button || !message) return;
 
     button.disabled = true;
-    message.textContent = "Logging in...";
+    button.textContent = "Logging in...";
+    message.dataset.state = "pending";
+    message.textContent = "Checking your credentials...";
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: emailInput.value.trim(),
-      password: passwordInput.value,
-    });
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: emailInput.value.trim(),
+        password: passwordInput.value,
+      });
 
-    button.disabled = false;
+      if (error) {
+        message.dataset.state = "error";
+        message.textContent = error.message;
+        return;
+      }
 
-    if (error) {
-      message.textContent = error.message;
-      return;
+      message.dataset.state = "success";
+      message.textContent = "Login successful. Redirecting...";
+      window.location.href = "/";
+    } catch (error) {
+      message.dataset.state = "error";
+      message.textContent =
+        error instanceof Error
+          ? error.message
+          : "Unable to log in. Please check your connection and try again.";
+    } finally {
+      button.disabled = false;
+      button.textContent = "Log in";
     }
-
-    message.textContent = "Login successful! Redirecting...";
-
-    window.location.href = "/";
   });
 </script>

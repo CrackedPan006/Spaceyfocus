@@ -366,16 +366,24 @@
         }
 
         .month-cell {
-          min-height: 58px;
-          padding: 5px;
+          min-height: 64px;
+          padding: 4px;
         }
 
         .month-cell .cnt {
-          display: none;
+          display: block;
+          font-size: 0;
+        }
+
+        .month-cell .cnt::before {
+          content: attr(data-count);
+          font-size: 9px;
         }
 
         .month-cell .sum {
-          font-size: 12px;
+          font-size: 10px;
+          line-height: 1.15;
+          overflow-wrap: anywhere;
         }
       }
     </style>
@@ -748,9 +756,15 @@
           });
 
           if (info) {
+            const count = el(
+              "span",
+              "cnt",
+              `${info.count} ${info.count === 1 ? "session" : "sessions"}`
+            );
+            count.dataset.count = String(info.count);
             cell.append(
               el("span", "sum", formatDuration(info.minutes)),
-              el("span", "cnt", `${info.count} ${info.count === 1 ? "session" : "sessions"}`)
+              count
             );
 
             // Darker shade = more focus time that day (full shade at 4 hours)

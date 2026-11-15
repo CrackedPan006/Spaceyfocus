@@ -341,15 +341,21 @@ const { title } = Astro.props;
     opacity: 0.72;
   }
 
-  .auth-card #login-message,
-  .auth-card #signup-message,
-  .auth-card #message {
+  .auth-card .auth-message {
     margin: 3px 4px 0;
     color: rgba(255, 255, 255, 0.9);
     font-size: 13px;
     line-height: 1.5;
     overflow-wrap: anywhere;
     text-align: center;
+  }
+
+  .auth-card .auth-message[data-state="error"] {
+    color: #ffd2c9;
+  }
+
+  .auth-card .auth-message[data-state="success"] {
+    color: #d3f1dc;
   }
 
   .auth-card .auth-links {
