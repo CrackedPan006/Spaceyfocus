@@ -386,6 +386,34 @@
           overflow-wrap: anywhere;
         }
       }
+      @media (max-width: 600px) {
+  .cal-app {
+    width: min(100% - 20px, 1040px);
+    margin: 16px auto 32px;
+  }
+
+  #title {
+    font-size: 18px;
+  }
+
+  .nav-buttons button {
+    padding: 9px 16px;
+  }
+
+  .seg button {
+    padding: 9px 14px;
+  }
+
+  .tg-scroll {
+    max-height: 68vh;
+    max-height: 68dvh;
+  }
+
+  .tg {
+    grid-template-columns: 40px repeat(var(--cols), minmax(0, 1fr));
+    min-width: calc(40px + var(--cols) * 60px);
+  }
+}
     </style>
   </head>
 

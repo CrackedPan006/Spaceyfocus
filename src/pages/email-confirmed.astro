@@ -1,0 +1,166 @@
+---
+import AuthLayout from "../layouts/AuthLayout.astro";
+---
+
+<AuthLayout title="Email confirmed | Spacey Focus">
+  <div id="confirm-icon" class="confirm-icon" aria-hidden="true">…</div>
+
+  <h1 id="confirm-title">Checking your link</h1>
+  <p id="confirm-text" role="status" aria-live="polite">One moment…</p>
+
+  <div class="confirm-actions">
+    <button type="button" id="confirm-action" hidden>Continue</button>
+  </div>
+
+  <div class="auth-links">
+    <a id="confirm-secondary" href="/signup" hidden>Create an account</a>
+  </div>
+</AuthLayout>
+
+<style>
+  .confirm-icon {
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 18px;
+    border: 2px solid rgba(255, 255, 255, 0.85);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.14);
+    font-size: 28px;
+    line-height: 1;
+  }
+
+  .confirm-actions {
+    margin: 26px 0 18px;
+  }
+
+  .confirm-actions button {
+    width: 100%;
+  }
+
+  [hidden] {
+    display: none !important;
+  }
+</style>
+
+<script>
+  import { supabase } from "../lib/Supabase";
+
+  const icon = document.querySelector<HTMLDivElement>("#confirm-icon")!;
+  const title = document.querySelector<HTMLHeadingElement>("#confirm-title")!;
+  const text = document.querySelector<HTMLParagraphElement>("#confirm-text")!;
+  const action = document.querySelector<HTMLButtonElement>("#confirm-action")!;
+  const secondary = document.querySelector<HTMLAnchorElement>("#confirm-secondary")!;
+
+  let actionTarget = "/";
+
+  action.addEventListener("click", () => {
+    window.location.href = actionTarget;
+  });
+
+  function show(options: {
+    icon: string;
+    title: string;
+    text: string;
+    actionLabel: string;
+    actionTarget: string;
+    secondaryLabel?: string;
+    secondaryHref?: string;
+  }): void {
+    icon.textContent = options.icon;
+    title.textContent = options.title;
+    text.textContent = options.text;
+
+    actionTarget = options.actionTarget;
+    action.textContent = options.actionLabel;
+    action.hidden = false;
+
+    if (options.secondaryLabel && options.secondaryHref) {
+      secondary.textContent = options.secondaryLabel;
+      secondary.href = options.secondaryHref;
+      secondary.hidden = false;
+    }
+  }
+
+  // Supabase puts either an error or the sign-in tokens in the address,
+  // after the # sign or after the ? sign.
+  const hashParams = new URLSearchParams(location.hash.replace(/^#/, ""));
+  const queryParams = new URLSearchParams(location.search);
+
+  const linkHasError =
+    hashParams.has("error") ||
+    hashParams.has("error_code") ||
+    queryParams.has("error") ||
+    queryParams.has("error_code");
+
+  const linkHasTokens =
+    hashParams.has("access_token") ||
+    hashParams.get("type") === "signup" ||
+    queryParams.has("code");
+
+  async function init(): Promise<void> {
+    if (linkHasError) {
+      // Remove the technical details from the address bar
+      history.replaceState(null, "", "/email-confirmed");
+
+      show({
+        icon: "!",
+        title: "This link didn't work",
+        text: "The confirmation link has expired or was already used. If you already confirmed your email, you can log in. If not, create the account again to get a new link.",
+        actionLabel: "Go to log in",
+        actionTarget: "/login",
+        secondaryLabel: "Create an account",
+        secondaryHref: "/signup"
+      });
+      return;
+    }
+
+    let hasSession = false;
+
+    try {
+      // Waits until Supabase has read the tokens from the address
+      const { data } = await supabase.auth.getSession();
+      hasSession = data.session !== null;
+    } catch (error) {
+      console.error("[email-confirmed] Could not check the session:", error);
+    }
+
+    // Remove the tokens from the address bar
+    history.replaceState(null, "", "/email-confirmed");
+
+    if (hasSession) {
+      show({
+        icon: "✓",
+        title: "Email confirmed",
+        text: "Your account is ready and you're logged in. Your focus sessions will now be saved to your account.",
+        actionLabel: "Go to the timer",
+        actionTarget: "/"
+      });
+      return;
+    }
+
+    if (linkHasTokens) {
+      show({
+        icon: "✓",
+        title: "Email confirmed",
+        text: "Your account is ready. Log in to start saving your focus sessions.",
+        actionLabel: "Log in",
+        actionTarget: "/login"
+      });
+      return;
+    }
+
+    show({
+      icon: "?",
+      title: "Nothing to confirm here",
+      text: "Open the confirmation link from your email to confirm your address, or log in if you already have an account.",
+      actionLabel: "Log in",
+      actionTarget: "/login",
+      secondaryLabel: "Create an account",
+      secondaryHref: "/signup"
+    });
+  }
+
+  void init();
+</script>

@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta
       name="description"
       content="Spacey Focus — A focused Pomodoro timer."
@@ -455,6 +455,27 @@
           margin: 35px auto;
         }
 
+    /* Hide the "Today" card; History spans the full width */
+      .statistics {
+      grid-template-columns: 1fr;
+      }
+
+      .statistics .stat-card:not(.history-card) {
+        display: none;
+        }
+
+      /* History button: no borders, blurred backdrop that fades out softly at the edges */
+      .statistics .history-card {
+        min-height: 72px;
+        border: 0;
+        box-shadow: none;
+        background: rgba(0, 0, 0, 0.28);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        -webkit-mask-image: radial-gradient(ellipse closest-side, #000 55%, transparent 100%);
+        mask-image: radial-gradient(ellipse closest-side, #000 55%, transparent 100%);
+      }
+
         .timer {
           padding: 25px 16px;
         }
@@ -515,6 +536,183 @@
         z-index: 10;
         pointer-events: none;
       }
+      /* ---------- Mobile ---------- */
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.scroll-hint {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@media (max-width: 600px) {
+  body {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  /* iPhones don't support fixed backgrounds and scrolling gets jumpy */
+  #background-layer,
+  #background-next {
+    background-attachment: scroll;
+  }
+
+  .timer-app {
+  display: flex;
+  flex-direction: column;
+  margin: calc(20px + env(safe-area-inset-top, 0px)) auto 0;
+  min-height: min(calc(100vh - 20px), 620px);
+  min-height: min(calc(100dvh - 20px - env(safe-area-inset-top, 0px)), 620px);
+}
+.scroll-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-top: auto;
+  padding: 18px 0 calc(12px + env(safe-area-inset-bottom, 0px));
+  color: #f5f3ef;
+  font-size: 13px;
+  text-decoration: none;
+  opacity: 0.75;
+}
+
+.scroll-hint-arrow {
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+}
+
+  .timer {
+    padding: 16px 12px 18px;
+  }
+
+  .timer-icon {
+    height: 24px;
+    margin-bottom: 8px;
+    font-size: 22px;
+  }
+
+  .display {
+    font-size: clamp(56px, 19vw, 76px);
+  }
+
+  #phase {
+    margin: 8px 0 16px;
+  }
+
+  /* Focus and Break side by side instead of stacked */
+  .duration-settings {
+    flex-direction: row;
+    gap: 22px;
+  }
+
+  .controls {
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  .controls button {
+    flex: 1;
+    min-width: 0;
+    padding: 12px 6px;
+    font-size: 16px;
+  }
+
+  #start {
+    min-width: 0;
+  }
+
+  .statistics {
+    margin-top: 16px;
+    gap: 8px;
+  }
+
+  .stat-card {
+    padding: 12px 8px;
+  }
+
+  .stat-number {
+    font-size: 26px;
+  }
+
+  .history-toggle {
+    min-height: 44px;
+    padding: 8px 12px;
+    font-size: 20px;
+  }
+
+  .music-section {
+    margin-top: 14px;
+  }
+
+  .music-toggle {
+    padding: 12px 20px;
+  }
+
+  .music-panel {
+    padding: 16px;
+  }
+
+  /* 16px stops iPhones from zooming in when you tap the field */
+  .music-input-row input {
+    font-size: 16px;
+  }
+
+.account {
+  position: static;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  padding: 28px 16px calc(36px + env(safe-area-inset-bottom, 0px));
+  border: 0;
+  background: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+  .account a,
+  .account span,
+  .account button {
+    font-size: 14px;
+  }
+
+  .account a {
+    padding: 8px 4px;
+  }
+
+  .account button {
+    padding: 8px 14px;
+  }
+
+  #account-email {
+    max-width: 38vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Signature moves to the top-left corner so it doesn't cover the bar */
+  .signature {
+    top: calc(10px + env(safe-area-inset-top, 0px));
+    bottom: auto;
+    left: 14px;
+    width: 34px;
+  }
+}
     </style>
   </head>
 
@@ -634,10 +832,14 @@
           </p>
         </div>
       </section>
+      <a class="scroll-hint" href="#account">
+  <span>Calendar &amp; account</span>
+  <span class="scroll-hint-arrow" aria-hidden="true"></span>
+</a>
     </main>
 
     <img src="/signature.svg" alt="" class="signature" />
-    <div class="account">
+    <div class="account" id="account">
     <a href="/calendar">Calendar</a>
     <span id="account-email" hidden></span>
     <a id="login-link" href="/login">Log in</a>
