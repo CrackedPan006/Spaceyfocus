@@ -83,11 +83,8 @@
       /* The first background lives here (not on body), so the crossfade
          never reveals a duplicate of it underneath. */
       #background-layer {
-        opacity: 1;
-        background-image:
-          linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)),
-          url("/backgrounds/background1.jpg");
-      }
+  opacity: 1;
+}
 
       #background-next {
         opacity: 0;
@@ -536,6 +533,562 @@
         z-index: 10;
         pointer-events: none;
       }
+      /* Add / remove sessions in the History panel */
+      /* Remove: just an X at the right end of each session */
+.history-remove {
+  padding: 0 2px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: #ebedf1;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.history-remove:hover {
+  background: none;
+  border-color: transparent;
+  color: #a1bfd2;
+}
+
+.history-remove.confirm {
+  color: #ff9b9b;
+  font-size: 12px;
+}
+
+/* Keeps the X on the same line, at the right edge */
+.history-item {
+  flex-wrap: nowrap;
+}
+
+  
+
+      .history-feedback {
+        min-height: 16px;
+        margin: 12px 0 0;
+        font-size: 12px;
+        color: #9baac0;
+      }
+
+      .history-feedback.error {
+        color: #ff9b9b;
+      }
+
+      .history-add-toggle {
+        margin-top: 8px;
+        padding: 7px 14px;
+        border-radius: 16px;
+        font-size: 13px;
+        color: #f5f3ef;
+      }
+
+      .add-session-form {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 8px 10px;
+        align-items: center;
+        margin-top: 12px;
+      }
+
+      .add-session-form label {
+        font-size: 12px;
+        color: #9baac0;
+      }
+
+      .add-session-form input {
+        width: 100%;
+        padding: 6px 10px;
+        border-radius: 10px;
+        font-size: 14px;
+        text-align: left;
+      }
+
+      .add-session-actions {
+        grid-column: 1 / -1;
+        display: flex;
+        gap: 8px;
+      }
+
+      .add-session-actions button {
+        flex: 1;
+        padding: 8px;
+        border-radius: 14px;
+        font-size: 14px;
+      }
+
+      @media (max-width: 600px) {
+        /* 16px stops iPhones from zooming in on the fields */
+        .add-session-form input {
+          font-size: 16px;
+        }
+      }
+      /* "Today : 2 sessions" in the top-left corner */
+.today-card {
+  position: fixed;
+  top: 35px;
+  left: clamp(32px, calc((100vw - 1100px) / 2), 150px);
+  z-index: 10;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.today-line {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin: 0;
+  font-size: 16px;
+  color: #f5f3ef;
+}
+
+.today-label {
+  color: #fafafa;
+}
+
+.today-colon {
+  color: #fbfcff;
+}
+
+.today-number {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Only the History button is left in the stats row */
+.statistics {
+  grid-template-columns: minmax(0, 220px);
+  justify-content: center;
+}
+
+/* Open the History panel below the Today text instead of on top of it */
+.history-panel {
+  top: 80px;
+  max-height: calc(100vh - 120px);
+}
+/* ---------- History button and panel ---------- */
+
+/* The panel fades and slides open instead of popping in */
+.history-panel {
+  opacity: 0;
+  transform: translateY(-6px);
+  clip-path: inset(0 0 100% 0);
+  transition: opacity 0.3s ease, transform 0.35s ease, clip-path 0.35s ease;
+}
+
+.history-panel.open {
+  opacity: 1;
+  transform: none;
+  clip-path: inset(-30px);
+}
+
+/* The animated outline only exists on desktop */
+.history-outline {
+  display: none;
+}
+
+@keyframes history-gaps {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -99;
+  }
+}
+
+@media (min-width: 900px) {
+  .statistics .history-card {
+    position: fixed;
+    top: 70px;
+    left: clamp(32px, calc((100vw - 1100px) / 2), 150px);
+    z-index: 10;
+    display: block;
+    width: 200px;
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .statistics .history-toggle {
+    position: relative;
+    width: 200px;
+    height: 44px;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 400;
+    letter-spacing: 0.22em;
+  }
+
+  .statistics .history-toggle:focus-visible {
+    outline: 1px solid #ffffff;
+    outline-offset: 4px;
+  }
+
+  /* text-indent balances the extra space letter-spacing adds after the last letter */
+  .history-label {
+    position: relative;
+    display: block;
+    text-indent: 0.22em;
+  }
+
+  .history-outline {
+    display: block;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+    filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.55));
+    transition: filter 0.3s ease;
+  }
+
+  .history-outline rect {
+    fill: none;
+    stroke: #ffffff;
+    stroke-width: 1.5;
+    /* 3 repeats of (31 dash + 2 gap) = 99, so 3 gaps and a seamless loop */
+    stroke-dasharray: 31 2;
+    animation: history-gaps 9s linear infinite;
+    transition: stroke 0.3s ease;
+  }
+
+  .history-toggle:hover .history-outline {
+    filter: drop-shadow(0 0 7px rgba(254, 253, 255, 0.11));
+  }
+
+  .history-toggle:hover .history-outline rect {
+    stroke: #e4e4e4;
+  }
+
+  /* The panel opens directly below the button */
+  .history-panel {
+    top: 126px;
+    max-height: calc(100vh - 150px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .history-panel {
+    transition: none;
+  }
+
+  .history-outline rect {
+    animation: none;
+  }
+}
+/* ---------- Time picker and "Add session" (desktop only) ---------- */
+/* ---------- Start time: typed boxes on desktop, scroll wheels on touch screens ---------- */
+
+/* The custom field replaces the plain label on every screen size */
+label[for="add-time"] {
+  display: none;
+}
+
+.time-picker {
+  grid-column: 1 / -1;
+}
+
+.time-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  color: #f5f3ef;
+}
+
+.time-field-title {
+  display: block;
+  font-size: 13px;
+  color: #f5f3ef;
+}
+
+.time-field-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: #9baac0;
+}
+
+.time-boxes {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px;
+  border: 1.5px solid transparent;
+  border-radius: 9px;
+  transition: border-color 0.2s ease;
+}
+
+.time-picker .time-box {
+  width: 38px;
+  min-width: 0;
+  padding: 5px 0;
+  border: 0;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #f5f3ef;
+  font-size: 15px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  caret-color: #ffffff;
+  outline: none;
+}
+
+.time-colon {
+  color: #9baac0;
+}
+
+/* Blue outline around the boxes while typing, or while the wheels are open */
+.time-boxes:focus-within,
+.time-picker.open .time-boxes {
+  border-color: #5b7fe0;
+}
+
+/* Scroll wheels exist on touch screens only */
+.time-wheel {
+  display: none;
+}
+
+@media (max-width: 899px) {
+  .time-field {
+    cursor: pointer;
+  }
+
+  .time-picker .time-box {
+    font-size: 16px;
+    cursor: pointer;
+  }
+
+  .time-wheel {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    gap: 22px;
+    height: 140px;
+    max-height: 0;
+    margin-top: 0;
+    overflow: hidden;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.35);
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      max-height 0.3s ease,
+      margin-top 0.3s ease,
+      opacity 0.25s ease,
+      visibility 0s linear 0.3s;
+  }
+
+  .time-picker.open .time-wheel {
+    max-height: 140px;
+    margin-top: 10px;
+    opacity: 1;
+    visibility: visible;
+    transition-delay: 0s;
+  }
+
+  .wheel-col {
+    width: 56px;
+    height: 140px;
+    overflow-y: auto;
+    scroll-snap-type: y mandatory;
+    scrollbar-width: none;
+    outline: none;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 32%, #000 68%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 32%, #000 68%, transparent 100%);
+  }
+
+  .wheel-col::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Empty space above and below, so the first and last values can reach the middle */
+  .wheel-col::before,
+  .wheel-col::after {
+    content: "";
+    display: block;
+    height: 56px;
+  }
+
+  .wheel-item {
+    height: 28px;
+    line-height: 28px;
+    color: #9baac0;
+    font-size: 15px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    scroll-snap-align: center;
+    cursor: pointer;
+  }
+
+  .wheel-item.selected {
+    color: #ffffff;
+    font-weight: 600;
+  }
+
+  /* Blue band around the selected time, with the colon in the middle */
+  .wheel-band {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    top: 50%;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: translateY(-50%);
+    border: 1.5px solid #5b7fe0;
+    border-radius: 9px;
+    background: rgba(91, 127, 224, 0.1);
+    color: #c3ccd9;
+    font-size: 15px;
+    pointer-events: none;
+  }
+}
+
+@media (min-width: 900px) {
+  /* "Add session": one thick white line underneath, nothing else */
+  .history-add-toggle {
+    padding: 6px 2px 7px;
+    border: 0;
+    border-bottom: 3px solid #ffffff;
+    border-radius: 0;
+    background: transparent;
+    color: #ffffff;
+    font-size: 14px;
+    letter-spacing: 0.04em;
+  }
+
+  .history-add-toggle:hover {
+    background: transparent;
+    border-bottom-color: #ffffff;
+  }
+
+  .history-add-toggle:focus-visible {
+    outline: 1px solid #ffffff;
+    outline-offset: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .time-wheel,
+  .time-boxes {
+    transition: none;
+  }
+}
+
+/* ---------- Glass buttons: Start / Skip, Pause, Reset ---------- */
+@property --glow-a {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 50%;
+}
+
+@property --glow-b {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 50%;
+}
+
+/* The glow splits, travels to the left and right edges, then returns to the middle */
+@keyframes glow-split {
+  0% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  40% {
+    transform: scale(1.25, 1.5);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+}
+
+.controls button {
+  position: relative;
+  isolation: isolate;
+  border: 0;
+  border-radius: 16px;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  color: #ffffff;
+  transition: transform 0.15s ease;
+}
+
+
+.controls button::before {
+  transition: width 0.25s ease;
+}
+
+.controls button:hover:not(:disabled)::before {
+  width: 44px;
+}
+
+/* The white glow rising from the bottom edge */
+.controls button::after {
+  content: "";
+  position: absolute;
+  left: -8px;
+  right: -8px;
+  bottom: -16px;
+  height: 32px;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse 45% 50% at var(--glow-a) 50%, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.18) 45%, rgba(255, 255, 255, 0) 75%),
+    radial-gradient(ellipse 45% 50% at var(--glow-b) 50%, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.18) 45%, rgba(255, 255, 255, 0) 75%);
+  filter: blur(6px);
+  opacity: 0.85;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.controls button:hover {
+  background: none;
+  border: 0;
+}
+
+.controls button:hover:not(:disabled)::after {
+  opacity: 1;
+}
+
+.controls button:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.controls button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.controls button.glow-go::after {
+  animation: glow-split 0.9s ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .controls button.glow-go::after {
+    animation: none;
+  }
+}
+
       /* ---------- Mobile ---------- */
 html {
   -webkit-text-size-adjust: 100%;
@@ -770,20 +1323,27 @@ a {
       </section>
 
       <section class="statistics" aria-label="Daily statistics">
-        <div class="stat-card">
-          <p id="today-count" class="stat-number">0</p>
-          <p class="stat-label">Today</p>
-        </div>
+        <div class="stat-card today-card">
+  <p class="today-line">
+    <span class="today-label">Today</span>
+    <span class="today-colon">:</span>
+    <span id="today-count" class="today-number">0</span>
+    <span id="today-unit">sessions</span>
+  </p>
+</div>
 
         <div class="stat-card history-card">
           <button
-            id="history-toggle"
-            class="history-toggle"
-            aria-expanded="false"
-            aria-controls="history-panel"
-          >
-            History
-          </button>
+          id="history-toggle"
+          class="history-toggle"
+          aria-expanded="false"
+          aria-controls="history-panel"
+        >
+          <svg class="history-outline" viewBox="0 0 200 44" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+            <rect x="0.75" y="0.75" width="198.5" height="42.5" pathLength="99"></rect>
+          </svg>
+          <span class="history-label">History</span>
+        </button>
         </div>
       </section>
 
@@ -791,6 +1351,47 @@ a {
         <h2>Today's history</h2>
         <p id="history-total" class="history-total">0 Pomodoro sessions completed today</p>
         <ol id="history-list" class="history-list"></ol>
+        <p id="history-feedback" class="history-feedback" role="status"></p>
+
+      <button type="button" id="add-session-toggle" class="history-add-toggle" aria-expanded="false">
+        + Add session
+      </button>
+
+      <form id="add-session-form" class="add-session-form" hidden>
+  <label for="add-date">Date</label>
+  <input id="add-date" type="date" required />
+
+  <label for="add-time">Started at</label>
+  <input id="add-time" type="hidden" />
+
+  <div class="time-picker" id="time-picker">
+    <div class="time-field" id="time-field">
+      <span class="time-field-text">
+        <span class="time-field-title">Started at</span>
+        <span class="time-field-sub">Session begins</span>
+      </span>
+      <span class="time-boxes">
+        <input id="time-box-h" class="time-box" type="text" inputmode="numeric" maxlength="2" autocomplete="off" value="08" aria-label="Start hour" />
+        <span class="time-colon">:</span>
+        <input id="time-box-m" class="time-box" type="text" inputmode="numeric" maxlength="2" autocomplete="off" value="00" aria-label="Start minute" />
+      </span>
+    </div>
+
+    <div class="time-wheel" id="time-wheel">
+      <div class="wheel-col" id="wheel-hours" role="listbox" aria-label="Hours" tabindex="0"></div>
+      <div class="wheel-col" id="wheel-minutes" role="listbox" aria-label="Minutes" tabindex="0"></div>
+      <div class="wheel-band" aria-hidden="true">:</div>
+    </div>
+  </div>
+
+  <label for="add-minutes">Minutes</label>
+  <input id="add-minutes" type="number" min="1" max="180" required />
+
+  <div class="add-session-actions">
+    <button type="submit">Add</button>
+    <button type="button" id="add-session-cancel">Cancel</button>
+  </div>
+</form>
       </section>
 
       <section class="music-section">
@@ -848,7 +1449,7 @@ a {
     </div>
 
     <script>
-      import { pushSession, syncLocalHistory, fetchTodaySessions } from "../lib/sessions";;
+      import { pushSession, syncLocalHistory, fetchTodaySessions, deleteSession } from "../lib/sessions";
       import { supabase } from "../lib/Supabase";
       const durationInput =
         document.querySelector<HTMLInputElement>("#duration")!;
@@ -869,7 +1470,10 @@ a {
         document.querySelector<HTMLParagraphElement>("#status")!;
 
       const todayCountDisplay =
-        document.querySelector<HTMLParagraphElement>("#today-count")!;
+        document.querySelector<HTMLSpanElement>("#today-count")!;
+
+      const todayUnitDisplay =
+        document.querySelector<HTMLSpanElement>("#today-unit")!;
 
       const historyToggle =
         document.querySelector<HTMLButtonElement>("#history-toggle")!;
@@ -1012,6 +1616,7 @@ a {
         );
 
         todayCountDisplay.textContent = String(todaysSessions.length);
+        todayUnitDisplay.textContent = todaysSessions.length === 1 ? "session" : "sessions";
 
         historyTotal.textContent =
           `${todaysSessions.length} Pomodoro ${todaysSessions.length === 1 ? "session" : "sessions"} completed today`;
@@ -1033,15 +1638,28 @@ a {
           const sessionLabel = document.createElement("span");
           sessionLabel.textContent = `Pomodoro ${index + 1}`;
 
-          const completedTime = new Date(session.completedAt).toLocaleTimeString([], {
+          // The start is the finish time minus the session length
+          const startedAt = new Date(new Date(session.completedAt).getTime() - session.minutes * 60000);
+
+          const startTime = startedAt.toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit"
           });
 
           const sessionDetails = document.createElement("span");
-          sessionDetails.textContent = ` — ${completedTime} · ${session.minutes} min`;
+          sessionDetails.textContent = ` — ${startTime} · ${session.minutes} min`;
 
-          item.append(sessionLabel, sessionDetails);
+          const info = document.createElement("span");
+          info.append(sessionLabel, sessionDetails);
+
+          const removeButton = document.createElement("button");
+          removeButton.type = "button";
+          removeButton.className = "history-remove";
+          removeButton.textContent = "×";
+          removeButton.setAttribute("aria-label", `Remove Pomodoro ${index + 1}`);
+          removeButton.addEventListener("click", () => handleRemoveClick(removeButton, session));
+
+          item.append(info, removeButton);
           historyList.appendChild(item);
         });
       }
@@ -1413,12 +2031,29 @@ a {
 
       loadMusicButton.addEventListener("click", loadMusic);
 
-      historyToggle.addEventListener("click", () => {
-        const isOpen = !historyPanel.hidden;
-        historyPanel.hidden = isOpen;
-        historyToggle.setAttribute("aria-expanded", String(!isOpen));
-        renderHistory();
-      });
+
+let historyCloseTimer: number | undefined;
+
+function setHistoryOpen(open: boolean): void {
+  window.clearTimeout(historyCloseTimer);
+  historyToggle.setAttribute("aria-expanded", String(open));
+
+  if (open) {
+    renderHistory();
+    historyPanel.hidden = false;
+    void historyPanel.offsetHeight; // lets the browser start the animation from the closed state
+    historyPanel.classList.add("open");
+  } else {
+    historyPanel.classList.remove("open");
+    historyCloseTimer = window.setTimeout(() => {
+      historyPanel.hidden = true;
+    }, 380);
+  }
+}
+
+historyToggle.addEventListener("click", () => {
+  setHistoryOpen(!historyPanel.classList.contains("open"));
+});
 
       musicInput.addEventListener("keydown", (event) => {
         if (event.key === "Enter") loadMusic();
@@ -1673,6 +2308,378 @@ a {
         }
       });
 
+// Add and remove sessions by hand
+// ---------------------------------------------------------------
+
+      const historyFeedback = document.querySelector<HTMLParagraphElement>("#history-feedback")!;
+      const addToggle = document.querySelector<HTMLButtonElement>("#add-session-toggle")!;
+      const addForm = document.querySelector<HTMLFormElement>("#add-session-form")!;
+      const addDate = document.querySelector<HTMLInputElement>("#add-date")!;
+      const addTime = document.querySelector<HTMLInputElement>("#add-time")!;
+      const addMinutes = document.querySelector<HTMLInputElement>("#add-minutes")!;
+      const addCancel = document.querySelector<HTMLButtonElement>("#add-session-cancel")!;
+
+      function setHistoryFeedback(text: string, isError = false): void {
+        historyFeedback.textContent = text;
+        historyFeedback.classList.toggle("error", isError);
+      }
+
+      // Removing takes two taps: the first turns × into "Remove?", the second confirms
+      let pendingRemove: HTMLButtonElement | null = null;
+
+      function resetPendingRemove(): void {
+        if (pendingRemove) {
+          pendingRemove.textContent = "×";
+          pendingRemove.classList.remove("confirm");
+          pendingRemove = null;
+        }
+      }
+
+      function handleRemoveClick(buttonEl: HTMLButtonElement, session: SessionRecord): void {
+        if (pendingRemove !== buttonEl) {
+          resetPendingRemove();
+          pendingRemove = buttonEl;
+          buttonEl.textContent = "Remove?";
+          buttonEl.classList.add("confirm");
+
+          setTimeout(() => {
+            if (pendingRemove === buttonEl) resetPendingRemove();
+          }, 3000);
+          return;
+        }
+
+        resetPendingRemove();
+        void removeSession(session);
+      }
+
+      async function removeSession(session: SessionRecord): Promise<void> {
+        setHistoryFeedback("Removing...");
+
+        const ok = await deleteSession(session.completedAt);
+
+        if (!ok) {
+          setHistoryFeedback("Couldn't remove the session. Check your connection and try again.", true);
+          return;
+        }
+
+        const target = new Date(session.completedAt).getTime();
+        const index = sessionHistory.findIndex((s) => new Date(s.completedAt).getTime() === target);
+        if (index !== -1) sessionHistory.splice(index, 1);
+
+        saveSessionHistory();
+        renderHistory();
+        setHistoryFeedback("Session removed.");
+      }
+
+      function setAddFormOpen(open: boolean): void {
+        addForm.hidden = !open;
+        addToggle.setAttribute("aria-expanded", String(open));
+
+        if (open) {
+          addMinutes.value = durationInput.value;
+
+        setTimePickerOpen(false);
+      if (open) syncPickerFromInput();
+
+
+  // Default start = now minus the session length
+  const length = Number(addMinutes.value) || 50;
+  const start = new Date(Date.now() - length * 60000);
+
+  addDate.max = getTodayKey();
+  addDate.value = getTodayKey(start);
+  addTime.value = `${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}`;
+}
+      }
+
+      addToggle.addEventListener("click", () => setAddFormOpen(addForm.hidden));
+      addCancel.addEventListener("click", () => setAddFormOpen(false));
+ 
+ // ---------------------------------------------------------------
+// Start time: typed boxes on desktop, scroll wheels on touch screens
+// ---------------------------------------------------------------
+
+const WHEEL_ITEM_H = 28;
+const desktopQuery = window.matchMedia("(min-width: 900px)");
+
+const timePicker = document.querySelector<HTMLDivElement>("#time-picker")!;
+const timeField = document.querySelector<HTMLDivElement>("#time-field")!;
+const timeBoxH = document.querySelector<HTMLInputElement>("#time-box-h")!;
+const timeBoxM = document.querySelector<HTMLInputElement>("#time-box-m")!;
+const wheelHours = document.querySelector<HTMLDivElement>("#wheel-hours")!;
+const wheelMinutes = document.querySelector<HTMLDivElement>("#wheel-minutes")!;
+
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+// ----- Typed boxes (desktop) -----
+
+// Both boxes are valid whole numbers in range, or null
+function readBoxes(): { hours: number; minutes: number } | null {
+  if (timeBoxH.value === "" || timeBoxM.value === "") return null;
+
+  const hours = Number(timeBoxH.value);
+  const minutes = Number(timeBoxM.value);
+
+  if (!Number.isInteger(hours) || hours < 0 || hours > 23) return null;
+  if (!Number.isInteger(minutes) || minutes < 0 || minutes > 59) return null;
+
+  return { hours, minutes };
+}
+
+// Copies the boxes into the hidden time input, but only when both are valid
+function commitBoxes(): void {
+  const time = readBoxes();
+  if (time) addTime.value = `${pad2(time.hours)}:${pad2(time.minutes)}`;
+}
+
+function showTimeInBoxes(): void {
+  const [hours, minutes] = addTime.value.split(":").map(Number);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return;
+
+  timeBoxH.value = pad2(hours);
+  timeBoxM.value = pad2(minutes);
+}
+
+function handleBoxInput(box: HTMLInputElement, max: number, next?: HTMLInputElement): void {
+  box.value = box.value.replace(/\D/g, "").slice(0, 2);
+
+  // A first digit that can't start a valid number (e.g. 5 for hours) becomes 05
+  if (box.value.length === 1 && Number(box.value) * 10 > max) {
+    box.value = pad2(Number(box.value));
+  }
+
+  if (box.value.length === 2) {
+    if (Number(box.value) > max) box.value = String(max);
+    commitBoxes();
+
+    if (next) {
+      next.focus();
+      next.select();
+    }
+  }
+}
+
+// When leaving a box: pad it to two digits, or put the previous value back if it's empty
+function normalizeBox(box: HTMLInputElement, max: number, savedPart: 0 | 1): void {
+  const digits = box.value.replace(/\D/g, "");
+
+  if (digits === "") {
+    box.value = pad2(Number(addTime.value.split(":")[savedPart]) || 0);
+  } else {
+    box.value = pad2(Math.min(max, Number(digits)));
+  }
+
+  commitBoxes();
+}
+
+function stepBox(box: HTMLInputElement, max: number, step: number): void {
+  const current = Number(box.value) || 0;
+  box.value = pad2((current + step + max + 1) % (max + 1));
+  commitBoxes();
+}
+
+[
+  { box: timeBoxH, max: 23, next: timeBoxM, prev: undefined, part: 0 as const },
+  { box: timeBoxM, max: 59, next: undefined, prev: timeBoxH, part: 1 as const }
+].forEach(({ box, max, next, prev, part }) => {
+  box.addEventListener("focus", () => {
+    if (desktopQuery.matches) box.select();
+  });
+
+  box.addEventListener("input", () => handleBoxInput(box, max, next));
+  box.addEventListener("blur", () => normalizeBox(box, max, part));
+
+  box.addEventListener("keydown", (event) => {
+    if (!desktopQuery.matches) return;
+
+    if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+      event.preventDefault();
+      stepBox(box, max, event.key === "ArrowUp" ? 1 : -1);
+    } else if (event.key === "Backspace" && box.value === "" && prev) {
+      prev.focus();
+      prev.select();
+    } else if (event.key === "Enter") {
+      normalizeBox(box, max, part);
+    }
+  });
+});
+
+// ----- Scroll wheels (touch screens) -----
+
+function buildWheel(column: HTMLElement, count: number): void {
+  for (let i = 0; i < count; i++) {
+    const item = document.createElement("div");
+    item.className = "wheel-item";
+    item.dataset.value = String(i);
+    item.setAttribute("role", "option");
+    item.textContent = pad2(i);
+    column.append(item);
+  }
+}
+
+buildWheel(wheelHours, 24);
+buildWheel(wheelMinutes, 60);
+
+function wheelValue(column: HTMLElement, count: number): number {
+  return Math.max(0, Math.min(count - 1, Math.round(column.scrollTop / WHEEL_ITEM_H)));
+}
+
+function setWheel(column: HTMLElement, value: number, smooth = false): void {
+  column.scrollTo({ top: value * WHEEL_ITEM_H, behavior: smooth ? "smooth" : "auto" });
+}
+
+function markSelected(column: HTMLElement, value: number): void {
+  column.querySelector(".wheel-item.selected")?.classList.remove("selected");
+  column.children[value]?.classList.add("selected");
+}
+
+// Wheels -> boxes and the hidden time input
+function syncFromWheels(): void {
+  const hours = wheelValue(wheelHours, 24);
+  const minutes = wheelValue(wheelMinutes, 60);
+
+  timeBoxH.value = pad2(hours);
+  timeBoxM.value = pad2(minutes);
+  addTime.value = `${pad2(hours)}:${pad2(minutes)}`;
+
+  markSelected(wheelHours, hours);
+  markSelected(wheelMinutes, minutes);
+}
+
+// Hidden time input -> boxes and wheels
+function syncPickerFromInput(): void {
+  const [hours, minutes] = addTime.value.split(":").map(Number);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return;
+
+  showTimeInBoxes();
+
+  setWheel(wheelHours, hours);
+  setWheel(wheelMinutes, minutes);
+  markSelected(wheelHours, hours);
+  markSelected(wheelMinutes, minutes);
+}
+
+function setTimePickerOpen(open: boolean): void {
+  if (open && desktopQuery.matches) return; // no wheels on desktop
+
+  timePicker.classList.toggle("open", open);
+  if (open) requestAnimationFrame(syncPickerFromInput);
+}
+
+let wheelFrame = 0;
+
+[wheelHours, wheelMinutes].forEach((column) => {
+  const count = column === wheelHours ? 24 : 60;
+
+  column.addEventListener(
+    "scroll",
+    () => {
+      cancelAnimationFrame(wheelFrame);
+      wheelFrame = requestAnimationFrame(syncFromWheels);
+    },
+    { passive: true }
+  );
+
+  // Tap a number to jump to it
+  column.addEventListener("click", (event) => {
+    const item = (event.target as HTMLElement).closest<HTMLElement>(".wheel-item");
+    if (item) setWheel(column, Number(item.dataset.value), true);
+  });
+
+  // Arrow keys step one value up or down
+  column.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+
+    event.preventDefault();
+    const step = event.key === "ArrowDown" ? 1 : -1;
+    setWheel(column, Math.max(0, Math.min(count - 1, wheelValue(column, count) + step)));
+  });
+});
+
+// Touch screens: tapping the time opens or closes the wheels
+timeField.addEventListener("click", () => {
+  if (desktopQuery.matches) return;
+  setTimePickerOpen(!timePicker.classList.contains("open"));
+});
+
+timePicker.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && timePicker.classList.contains("open")) {
+    event.stopPropagation();
+    setTimePickerOpen(false);
+  }
+});
+
+// Desktop: the boxes are typed into. Touch screens: they're read-only and open the wheels.
+function applyPickerMode(): void {
+  const desktop = desktopQuery.matches;
+
+  timeBoxH.readOnly = !desktop;
+  timeBoxM.readOnly = !desktop;
+
+  if (desktop) setTimePickerOpen(false);
+}
+
+desktopQuery.addEventListener("change", applyPickerMode);
+applyPickerMode();
+
+     addForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+  const [year, month, day] = addDate.value.split("-").map(Number);
+  const [hours, minutesOfHour] = addTime.value.split(":").map(Number);
+  const minutes = Number(addMinutes.value);
+  const startedAt = new Date(year, month - 1, day, hours, minutesOfHour, 0, 0);
+
+  if (Number.isNaN(startedAt.getTime())) {
+    setHistoryFeedback("Please enter a valid date and start time.", true);
+    return;
+  }
+
+  if (!Number.isInteger(minutes) || minutes < 1 || minutes > 180) {
+    setHistoryFeedback("Minutes must be a whole number between 1 and 180.", true);
+    return;
+  }
+
+  // Sessions are stored by the time they ended
+  const completedAt = new Date(startedAt.getTime() + minutes * 60000);
+
+  if (completedAt.getTime() > Date.now()) {
+    setHistoryFeedback("A session can't end in the future. Check the start time and minutes.", true);
+    return;
+  }
+
+  if (sessionHistory.some((s) => new Date(s.completedAt).getTime() === completedAt.getTime())) {
+    setHistoryFeedback("A session already ends at that time. Pick a different start time.", true);
+    return;
+  }
+
+  const record: SessionRecord = {
+    date: getTodayKey(completedAt),
+    completedAt: completedAt.toISOString(),
+    minutes
+  };
+
+  setHistoryFeedback("Adding...");
+  const saved = await pushSession(record);
+
+  if (!saved) {
+    setHistoryFeedback("Couldn't save the session to your account. Check your connection and try again.", true);
+    return;
+  }
+
+  sessionHistory.push(record);
+  sessionHistory.sort(
+    (a, b) => new Date(a.completedAt).getTime() - new Date(b.completedAt).getTime()
+  );
+  saveSessionHistory();
+  renderHistory();
+
+  setAddFormOpen(false);
+  setHistoryFeedback("Session added.");
+});
+  //KEEP TIMER GOIN BABY!!!!
     const TIMER_STATE_KEY = "spaceyfocus-timer-state";
     const MAX_AWAY_MS = 12 * 60 * 60 * 1000;
 
@@ -1766,7 +2773,20 @@ a {
     });
 
     restoreTimerState();
+// Glow animation on the Start / Pause / Reset buttons
+document.querySelectorAll<HTMLButtonElement>(".controls button").forEach((controlButton) => {
+  controlButton.addEventListener("click", () => {
+    if (controlButton.disabled) return;
 
+    controlButton.classList.remove("glow-go");
+    void controlButton.offsetWidth; // restarts the animation if you click again quickly
+    controlButton.classList.add("glow-go");
+  });
+
+  controlButton.addEventListener("animationend", (event) => {
+    if (event.animationName === "glow-split") controlButton.classList.remove("glow-go");
+  });
+});
       // Initial display
       render();
       renderHistory();
@@ -1811,10 +2831,16 @@ a {
       ];
 
       const BACKGROUND_FADE_MS = 8000;
-      let currentBackground = 0;
 
       const backgroundLayer = document.getElementById("background-layer")!;
       const nextBackground = document.getElementById("background-next")!;
+      // Pick a random starting background on every visit
+let currentBackground = Math.floor(Math.random() * backgrounds.length);
+
+backgroundLayer.style.backgroundImage = `
+  linear-gradient(rgba(0, 0, 0, 0.30), rgba(0, 0, 0, 0.30)),
+  url("${backgrounds[currentBackground]}")
+`;
 
       // The new image fades in on top of the current one. Once the fade is done,
       // it is copied to the base layer and the top layer is hidden instantly, so

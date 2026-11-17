@@ -23,19 +23,20 @@ async function getUserId(): Promise<string | null> {
 }
 
 // Called after every completed focus session
-export async function pushSession(s: LocalSession): Promise<void> {
+export async function pushSession(s: LocalSession): Promise<boolean> {
   const userId = await getUserId();
-  if (!userId) {
-    console.warn("[sessions] Not logged in, so the session was not saved to the cloud.");
-    return;
-  }
+  if (!userId) return true; // guest: the local copy is all there is
 
   const { error } = await supabase
     .from("focus_sessions")
     .upsert(toRow(s, userId), { onConflict: "user_id,completed_at", ignoreDuplicates: true });
 
-  if (error) console.error("[sessions] Save failed:", error.message);
-  else console.log("[sessions] Session saved to the cloud.");
+  if (error) {
+    console.error("[sessions] Save failed:", error.message);
+    return false;
+  }
+
+  return true;
 }
 
 // Uploads the guest history from this browser (safe to run repeatedly)
@@ -97,4 +98,26 @@ export async function fetchTodaySessions(): Promise<LocalSession[]> {
       minutes: Math.max(1, Math.round(row.duration_seconds / 60))
     };
   });
+}
+
+export async function deleteSession(completedAt: string): Promise<boolean> {
+  const userId = await getUserId();
+  if (!userId) return true; // guest: only the local copy exists
+
+  const start = new Date(completedAt).getTime();
+
+  // Match anything inside that one millisecond, in case the stored time has extra digits
+  const { error } = await supabase
+    .from("focus_sessions")
+    .delete()
+    .eq("user_id", userId)
+    .gte("completed_at", new Date(start).toISOString())
+    .lt("completed_at", new Date(start + 1).toISOString());
+
+  if (error) {
+    console.error("[sessions] Could not delete the session:", error.message);
+    return false;
+  }
+
+  return true;
 }
