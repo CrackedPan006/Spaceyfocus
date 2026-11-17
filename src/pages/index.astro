@@ -848,7 +848,7 @@ a {
     </div>
 
     <script>
-      import { pushSession, syncLocalHistory } from "../lib/sessions";
+      import { pushSession, syncLocalHistory, fetchTodaySessions } from "../lib/sessions";;
       import { supabase } from "../lib/Supabase";
       const durationInput =
         document.querySelector<HTMLInputElement>("#duration")!;
@@ -1114,8 +1114,8 @@ a {
       }
 
       // Get the current local calendar date
-      function getTodayKey(): string {
-        const now = new Date();
+      function getTodayKey(date: Date = new Date()): string {
+        const now = date;
         const year = now.getFullYear();
         const month = String(now.getMonth() + 1).padStart(2, "0");
         const day = String(now.getDate()).padStart(2, "0");
@@ -1429,7 +1429,7 @@ a {
       // ---------------------------------------------------------------
 
       // Start the break automatically after a focus session
-      function completeFocusSession(): void {
+      function completeFocusSession(completedAt: Date = new Date(), silent = false): void {
         completedSessions++;
 
         // Use the length the session actually ran for, not the input's current value
@@ -1437,8 +1437,8 @@ a {
         const completedMinutes = Math.max(1, Math.round(focusSessionTotalMs / 60000));
 
         const record = {
-        date: getTodayKey(),
-        completedAt: new Date().toISOString(),
+        date: getTodayKey(completedAt),
+        completedAt: completedAt.toISOString(),
         minutes: completedMinutes
         };
         sessionHistory.push(record);
@@ -1446,8 +1446,10 @@ a {
         void pushSession(record);
         saveCompletedSessions();
 
+        if (!silent) {
         playNotification(focusCompleteSound);
-        notifyUser("Focus complete!", "Time for a break.");
+          notifyUser("Focus complete!", "Time for a break.");
+        }
 
         // Music stops as soon as the focus session ends
         pauseMusic();
@@ -1671,14 +1673,131 @@ a {
         }
       });
 
+    const TIMER_STATE_KEY = "spaceyfocus-timer-state";
+    const MAX_AWAY_MS = 12 * 60 * 60 * 1000;
+
+    function saveTimerState(): void {
+      try {
+        localStorage.setItem(
+          TIMER_STATE_KEY,
+          JSON.stringify({
+            phase,
+            deadline,
+            remainingMs,
+            isPaused,
+            focusSessionTotalMs,
+            savedAt: Date.now()
+          })
+        );
+      } catch {
+        // The timer still works without saving.
+      }
+    }
+
+    function restoreTimerState(): void {
+      let saved: any = null;
+
+      try {
+        saved = JSON.parse(localStorage.getItem(TIMER_STATE_KEY) ?? "null");
+      } catch {
+        return;
+      }
+
+      if (!saved || (saved.phase !== "focus" && saved.phase !== "break")) return;
+      if (!Number.isFinite(saved.savedAt) || Date.now() - saved.savedAt > MAX_AWAY_MS) return;
+
+      phase = saved.phase;
+      focusSessionTotalMs = Number.isFinite(saved.focusSessionTotalMs)
+        ? saved.focusSessionTotalMs
+        : 0;
+
+      if (typeof saved.deadline === "number") {
+        const now = Date.now();
+
+        if (saved.deadline > now) {
+          deadline = saved.deadline;
+          remainingMs = saved.deadline - now;
+          isPaused = false;
+          setStatus(phase === "focus" ? "Focus session in progress" : "Break in progress");
+          setButtons("running");
+          startInterval();
+          return;
+        }
+
+        if (phase === "focus") {
+          const alreadyCounted = sessionHistory.some(
+            (s) => Math.abs(new Date(s.completedAt).getTime() - saved.deadline) < 60000
+          );
+
+          if (alreadyCounted) {
+            phase = "break";
+            setButtons("idle");
+            if (loadPhaseDuration()) setStatus("Focus complete! Enjoy your break.");
+          } else {
+            completeFocusSession(new Date(saved.deadline), true);
+          }
+        } else {
+          phase = "focus";
+          setButtons("idle");
+          if (loadPhaseDuration()) setStatus("Break finished. Ready to focus?");
+        }
+        return;
+      }
+
+      // The timer was paused
+      if (saved.isPaused === true && Number.isFinite(saved.remainingMs) && saved.remainingMs > 0) {
+        remainingMs = saved.remainingMs;
+        isPaused = true;
+        setStatus(phase === "focus" ? "Focus session paused" : "Break paused");
+        setButtons("paused");
+        return;
+      }
+
+      // The timer was idle (e.g. waiting to start the break)
+      setButtons("idle");
+      if (loadPhaseDuration()) {
+        setStatus(phase === "focus" ? "Ready to focus" : "Ready for a break");
+      }
+    }
+
+    window.addEventListener("pagehide", saveTimerState);
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) saveTimerState();
+    });
+
+    restoreTimerState();
+
       // Initial display
       render();
       renderHistory();
       void syncLocalHistory();
+      // Add today's sessions from the cloud that this browser doesn't know about yet
+      async function mergeCloudHistory(): Promise<void> {
+        const cloud = await fetchTodaySessions();
+        if (cloud.length === 0) return;
 
-      // ---------------------------------------------------------------
+        const known = new Set(sessionHistory.map((s) => new Date(s.completedAt).getTime()));
+        let added = false;
+
+        for (const session of cloud) {
+          if (!known.has(new Date(session.completedAt).getTime())) {
+            sessionHistory.push(session);
+            added = true;
+          }
+        }
+
+        if (!added) return;
+
+        sessionHistory.sort(
+          (a, b) => new Date(a.completedAt).getTime() - new Date(b.completedAt).getTime()
+        );
+        saveSessionHistory();
+        renderHistory();
+      }
+
+      void mergeCloudHistory();
+
       // Automatic background rotation
-      // ---------------------------------------------------------------
 
       const backgrounds = [
         "/backgrounds/background1.jpg",

@@ -64,3 +64,37 @@ export async function syncLocalHistory(): Promise<void> {
   if (error) console.error("[sessions] Upload failed:", error.message);
   else console.log("[sessions] Local history uploaded.");
 }
+
+// Today's sessions from the cloud, in the same shape the timer page uses
+export async function fetchTodaySessions(): Promise<LocalSession[]> {
+  const userId = await getUserId();
+  if (!userId) return [];
+
+  const now = new Date();
+  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+
+  const { data, error } = await supabase
+    .from("focus_sessions")
+    .select("completed_at, duration_seconds")
+    .gte("completed_at", dayStart.toISOString())
+    .lt("completed_at", dayEnd.toISOString())
+    .order("completed_at");
+
+  if (error) {
+    console.error("[sessions] Could not load today's sessions:", error.message);
+    return [];
+  }
+
+  return (data ?? []).map((row: any) => {
+    const completed = new Date(row.completed_at);
+    const month = String(completed.getMonth() + 1).padStart(2, "0");
+    const day = String(completed.getDate()).padStart(2, "0");
+
+    return {
+      date: `${completed.getFullYear()}-${month}-${day}`,
+      completedAt: completed.toISOString(),
+      minutes: Math.max(1, Math.round(row.duration_seconds / 60))
+    };
+  });
+}
